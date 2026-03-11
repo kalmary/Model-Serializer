@@ -1,0 +1,20 @@
+{
+  "tracking_uri": "sqlite://///home/michal/code/Model-Serializer/data/mlflow.db",
+  "registry_uri": "sqlite:///mlflow.db",
+  "experiment_name": "pytorch-model-experiments",
+  "create_experiment_if_missing": true,
+  "run_name_template": "{model_type}_{timestamp}",
+  "nested_runs": false,
+  "experiment_description": "experiments for various pytorch models",
+  "tags": {
+    "framework": "pytorch",
+    "project": "deep-learning"
+  },
+  "register_model": true,
+  "registered_model_name": "classifier-model",
+  "registry_stage": "Staging",
+  "artifact_root": "artifacts",
+  "checkpoint_dir": "checkpoints",
+  "plot_dir": "plots",
+  "model_dir": "model"
+}

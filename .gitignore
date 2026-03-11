@@ -1,0 +1,9 @@
+# Enviroments
+.venv
+
+# Test folders
+/quickstart_code
+
+__pycache__/
+
+/data
