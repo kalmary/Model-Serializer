@@ -1,6 +1,6 @@
 {
-  "tracking_uri": "sqlite://///home/michal/code/Model-Serializer/mlflow_data/mlflow.db",
-  "registry_uri": "sqlite:///mlflow.db",
+  "tracking_uri": "sqlite://///home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/mlflow_data/db_mlflow/mlflow.db",
+  "registry_uri": "sqlite://///home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/mlflow_data/db_mlflow/mlflow.db",
   "experiment_name": "pytorch-model-experiments",
   "create_experiment_if_missing": true,
   "run_name_template": "{model_type}_{timestamp}",
@@ -13,7 +13,7 @@
   "register_model": true,
   "registered_model_name": "classifier-model",
   "registry_stage": "Staging",
-  "artifact_root": "artifacts",
+  "artifact_dir": "/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/mlflow_data/artifacts",
   "checkpoint_dir": "checkpoints",
   "plot_dir": "plots",
   "model_dir": "model"
