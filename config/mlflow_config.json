@@ -1,5 +1,5 @@
 {
-  "tracking_uri": "sqlite://///home/michal/code/Model-Serializer/data/mlflow.db",
+  "tracking_uri": "sqlite://///home/michal/code/Model-Serializer/mlflow_data/mlflow.db",
   "registry_uri": "sqlite:///mlflow.db",
   "experiment_name": "pytorch-model-experiments",
   "create_experiment_if_missing": true,
