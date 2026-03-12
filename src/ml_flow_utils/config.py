@@ -9,13 +9,15 @@ class MLFlowConfig:
         self,
         tracking_uri: str,
         experiment_name: str,
+        artifact_dir: str,
         #run_name_template: str | None = None,
         tags: dict | None = None,
         register_model: bool = False,
         registered_model_name: str | None = None,
-        registry_stage: str | None = None,
+        registry_stage: str | None = None
     ):
         self.tracking_uri = tracking_uri
+        self.artifact_dir = artifact_dir
         self.experiment_name = experiment_name
         #self.run_name_template = run_name_template
         self.tags = tags or {}
@@ -45,7 +47,7 @@ class MLFlowConfig:
         experiment = mlflow.get_experiment_by_name(self.experiment_name)
 
         if experiment is None:
-            self.experiment_id = mlflow.create_experiment(self.experiment_name)
+            self.experiment_id = mlflow.create_experiment(self.experiment_name, self.artifact_dir)
         else:
             self.experiment_id = experiment.experiment_id
 

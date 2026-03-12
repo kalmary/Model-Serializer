@@ -1,28 +1,38 @@
 import torch
-
-from src.dataset import TitanicDataset
-from src.model import TitanicModel
-from src.train import train_model
-from src.evaluate import evaluate
-from src.utils import load_json
+import mlflow
+from .dataset import TitanicDataset
+from .model import TitanicModel
+from .train import train_model
+from .evaluate import evaluate
+from .utils import load_json
+from src.ml_flow_utils.config import MLFlowConfig
+from src.ml_flow_utils.tracker import MLFlowTracker
 
 
 def main():
 
-    model_config = load_json("configs/model_config.json")
-    train_config = load_json("configs/train_config.json")
+    config = MLFlowConfig.from_json('/home/michal/code/Model-Serializer/config/mlflow_config.json')
+    config.apply()
 
-    dataset = TitanicDataset("data/Titanic-Dataset.csv")
+    with mlflow.start_run():
 
-    model = TitanicModel(model_config)
+        model_config = load_json("/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/configs/model_config.json")
+        train_config = load_json("/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/configs/train_config.json")
 
-    model, test_loader = train_model(dataset, model, train_config)
+        dataset = TitanicDataset("/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/data/Titanic-Dataset.csv")
 
-    accuracy = evaluate(model, test_loader)
+        model = TitanicModel(model_config)
 
-    print("Test Accuracy:", accuracy)
+        model, test_loader = train_model(dataset, model, train_config)
 
-    torch.save(model.state_dict(), "model.pt")
+        logger = MLFlowTracker()
+        logger.log_model(model)
+
+        accuracy = evaluate(model, test_loader)
+
+        print("Test Accuracy:", accuracy)
+
+        torch.save(model.state_dict(), "model.pt")
 
 
 if __name__ == "__main__":
