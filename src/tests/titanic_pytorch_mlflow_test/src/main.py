@@ -25,7 +25,7 @@ def main():
 
         model, test_loader = train_model(dataset, model, train_config)
 
-        logger = MLFlowTracker(client)
+        logger = MLFlowTracker(client, config.artifact_dir)
         logger.log_model(model=model, model_name="test1")
 
         input()
@@ -35,7 +35,7 @@ def main():
 
         print("Test Accuracy:", accuracy)
 
-        torch.save(model.state_dict(), "model.pt")
+        #torch.save(model.state_dict(), "model.pt")
 
 
 if __name__ == "__main__":

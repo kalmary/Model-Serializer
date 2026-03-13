@@ -5,10 +5,12 @@ import os
 import shutil
 from pathlib import Path
 from mlflow.tracking import MlflowClient
+from src.ml_flow_utils.config import MLFlowConfig
 
 class MLFlowTracker:
 
-    def __init__(self, client: MlflowClient) -> None:
+    def __init__(self, client: MlflowClient, artifact_dir: str) -> None:
+        self.artifact_dir = artifact_dir
         self.client = client
         self.model_id = None
 
@@ -31,17 +33,20 @@ class MLFlowTracker:
         #change to multiple or one
 
     def log_model(self, model, model_name: str):
-        artifact_dir = "/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/mlflow_data/artifacts"
+
         if self.model_id is not None:
-            model_path = os.path.join(artifact_dir, "models", self.model_id)
-            print(model_path)
-            shutil.rmtree(model_path)
+            model_path = os.path.join(self.artifact_dir, "models", self.model_id)
+
+            if os.path.exists(model_path):
+                shutil.rmtree(model_path)
+
             self.client.delete_logged_model(self.model_id)
         
         model_info = mlflow.pytorch.log_model(pytorch_model=model, name=model_name) # type: ignore
         self.model_id = model_info.model_id
         self.model_key = model_info.tags
 
+        #change the "models" path
 
 
     def log_metrics(self):
