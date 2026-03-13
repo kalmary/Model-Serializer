@@ -12,8 +12,8 @@ class MLFlowConfig:
         artifact_dir: str,
     ):
         self.tracking_uri = tracking_uri
-        self.artifact_dir = artifact_dir
         self.experiment_name = experiment_name
+        self.artifact_dir = artifact_dir
 
     @classmethod
     def from_json(cls, path: str | Path):
