@@ -12,7 +12,7 @@ from src.ml_flow_utils.tracker import MLFlowTracker
 def main():
 
     config = MLFlowConfig.from_json('/home/michal/code/Model-Serializer/config/mlflow_config.json')
-    config.apply()
+    client = config.apply()
 
     with mlflow.start_run():
 
@@ -25,9 +25,12 @@ def main():
 
         model, test_loader = train_model(dataset, model, train_config)
 
-        logger = MLFlowTracker()
-        logger.log_model(model)
+        logger = MLFlowTracker(client)
+        logger.log_model(model=model, model_name="test1")
 
+        input()
+
+        logger.log_model(model=model, model_name="test1")
         accuracy = evaluate(model, test_loader)
 
         print("Test Accuracy:", accuracy)

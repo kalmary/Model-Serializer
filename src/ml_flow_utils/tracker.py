@@ -1,12 +1,16 @@
 import mlflow
-import json
-from pathlib import Path
 import mlflow.pytorch
+import json
+import os
+import shutil
+from pathlib import Path
+from mlflow.tracking import MlflowClient
 
 class MLFlowTracker:
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, client: MlflowClient) -> None:
+        self.client = client
+        self.model_id = None
 
     def log_train_param(self, path: str | Path):
         path = Path(path)
@@ -26,23 +30,24 @@ class MLFlowTracker:
         mlflow.log_param("dataset_path", str(dataset_path))
         #change to multiple or one
 
-    def log_model(self, model, artifact_path: str = "model"):
-        mlflow.pytorch.log_model(model, artifact_path=artifact_path)
+    def log_model(self, model, model_name: str):
+        artifact_dir = "/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/mlflow_data/artifacts"
+        if self.model_id is not None:
+            model_path = os.path.join(artifact_dir, "models", self.model_id)
+            print(model_path)
+            shutil.rmtree(model_path)
+            self.client.delete_logged_model(self.model_id)
+        
+        model_info = mlflow.pytorch.log_model(pytorch_model=model, name=model_name) # type: ignore
+        self.model_id = model_info.model_id
+        self.model_key = model_info.tags
+
+
 
     def log_metrics(self):
 
         mlflow.log_metrics
         pass
-
-
-    '''
-    def start_tracking(self, train_param_path, model_arch_path, dataset_path):
-    with mlflow.start_run():
-
-        self.train_param_tracker(train_param_path)
-        self.model_arch_tracker(model_arch_path)
-        self.dataset_tracker(dataset_path)  
-    '''
 
 
 
