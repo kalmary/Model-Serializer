@@ -26,11 +26,10 @@ def main():
         model, test_loader = train_model(dataset, model, train_config)
 
         logger = MLFlowTracker(client, config.artifact_dir)
-        logger.log_model(model=model, model_name="test1")
+        logger.log_model(model=model, model_name="model_test")
+        
 
-        input()
 
-        logger.log_model(model=model, model_name="test1")
         accuracy = evaluate(model, test_loader)
 
         print("Test Accuracy:", accuracy)
