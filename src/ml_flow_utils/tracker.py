@@ -46,6 +46,12 @@ class MLFlowTracker:
         self.model_id = model_info.model_id
         self.model_key = model_info.tags
 
+        # model extension change from .pth to .pt
+        pth_path = os.path.join(self.artifact_dir, "models", self.model_id, "artifacts/data/model.pth")
+        pt_path = os.path.splitext(pth_path)[0] + ".pt"
+        os.rename(pth_path, pt_path)
+
+        
         #change the "models" path
 
 
