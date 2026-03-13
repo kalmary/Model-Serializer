@@ -1,0 +1,23 @@
+artifact_path: /home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/mlflow_data/artifacts/models/m-9fcde792e70c48d0b512b978f0104054/artifacts
+flavors:
+  python_function:
+    config:
+      device: null
+    data: data
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pytorch
+    pickle_module_name: mlflow.pytorch.pickle_module
+    python_version: 3.13.7
+  pytorch:
+    code: null
+    model_data: data
+    pytorch_version: 2.7.1+cu118
+mlflow_version: 3.10.1
+model_id: m-9fcde792e70c48d0b512b978f0104054
+model_size_bytes: 8153
+model_uuid: m-9fcde792e70c48d0b512b978f0104054
+prompts: null
+run_id: 69e25c36d3c0443abdcac65f4faf8930
+utc_time_created: '2026-03-13 13:14:10.529061'
