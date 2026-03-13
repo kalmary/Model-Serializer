@@ -14,21 +14,48 @@ class MLFlowTracker:
         self.client = client
         self.model_id = None
 
-    def log_train_param(self, path: str | Path):
+    def log_train_config(self, path: str | Path, save_as_parameters: bool = True):
         path = Path(path)
 
-        with path.open("r") as f:
-            data = json.load(f)
-        
-        mlflow.log_params(data)
+        if save_as_parameters:
+            with path.open("r") as f:
+                data = json.load(f)
+
+            run = mlflow.active_run()
+            if run:
+                existing_keys = set(mlflow.MlflowClient().get_run(run.info.run_id).data.params.keys())
+            else:
+                existing_keys = set()
+
+            new_params = {k: v for k, v in data.items() if k not in existing_keys}
+
+            if new_params:
+                mlflow.log_params(new_params)
+
         mlflow.log_artifact(str(path))
 
-    def log_model_arch(self, path: str | Path):
-        mlflow.log_artifact(str(path))        
+    def log_model_config(self, path: str | Path, save_as_parameters: bool = True):
+        path = Path(path)
+
+        if save_as_parameters:
+            with path.open("r") as f:
+                data = json.load(f)
+
+            run = mlflow.active_run()
+            if run:
+                existing_keys = set(mlflow.MlflowClient().get_run(run.info.run_id).data.params.keys())
+            else:
+                existing_keys = set()
+
+            new_params = {k: v for k, v in data.items() if k not in existing_keys}
+
+            if new_params:
+                mlflow.log_params(new_params)
+
+        mlflow.log_artifact(str(path))
 
     def log_dataset(self, path: str | Path):
         dataset_path = Path(path)
-        mlflow.log_param("dataset_name", dataset_path.name)
         mlflow.log_param("dataset_path", str(dataset_path))
         #change to multiple or one
 
@@ -51,7 +78,7 @@ class MLFlowTracker:
         pt_path = os.path.splitext(pth_path)[0] + ".pt"
         os.rename(pth_path, pt_path)
 
-        
+
         #change the "models" path
 
 

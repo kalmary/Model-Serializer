@@ -9,6 +9,10 @@ from src.ml_flow_utils.config import MLFlowConfig
 from src.ml_flow_utils.tracker import MLFlowTracker
 
 
+dataset_path = "/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/data/Titanic-Dataset.csv"
+model_config_path = "/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/configs/model_config.json"
+train_config_path = "/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/configs/train_config.json"
+
 def main():
 
     config = MLFlowConfig.from_json('/home/michal/code/Model-Serializer/config/mlflow_config.json')
@@ -16,16 +20,19 @@ def main():
 
     with mlflow.start_run():
 
-        model_config = load_json("/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/configs/model_config.json")
-        train_config = load_json("/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/configs/train_config.json")
+        model_config = load_json(model_config_path)
+        train_config = load_json(train_config_path)
 
-        dataset = TitanicDataset("/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/data/Titanic-Dataset.csv")
+        dataset = TitanicDataset(dataset_path)
 
         model = TitanicModel(model_config)
 
         model, test_loader = train_model(dataset, model, train_config)
 
         logger = MLFlowTracker(client, config.artifact_dir)
+        logger.log_model_config("/home/michal/code/Model-Serializer/config/config_model_randlanet.json")
+        logger.log_train_config("/home/michal/code/Model-Serializer/config/config_train_randlanet.json")
+        logger.log_dataset(dataset_path)
         logger.log_model(model=model, model_name="model_test")
         
 
