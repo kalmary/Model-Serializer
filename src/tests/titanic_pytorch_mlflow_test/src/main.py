@@ -17,7 +17,7 @@ def main():
 
     config = MLFlowConfig.from_json('/home/michal/code/Model-Serializer/config/mlflow_config.json')
     client = config.apply()
-
+    logger = MLFlowTracker(client, config.artifact_dir)
     with mlflow.start_run():
 
         model_config = load_json(model_config_path)
@@ -27,9 +27,9 @@ def main():
 
         model = TitanicModel(model_config)
 
-        model, test_loader = train_model(dataset, model, train_config)
+        model, test_loader = train_model(dataset, model, train_config, logger)
 
-        logger = MLFlowTracker(client, config.artifact_dir)
+        
         logger.log_model_config("/home/michal/code/Model-Serializer/config/config_model_randlanet.json")
         logger.log_train_config("/home/michal/code/Model-Serializer/config/config_train_randlanet.json")
         logger.log_dataset(dataset_path)
@@ -37,9 +37,12 @@ def main():
         
 
 
-        accuracy = evaluate(model, test_loader)
+        test_accuracy, cm, rc = evaluate(model, test_loader)
 
-        print("Test Accuracy:", accuracy)
+        logger.log_metrics({"test_acc": test_accuracy})
+        logger.log_metrics_artfact({"confusion_matrix": cm, "roc_curve": rc})
+
+        print("Test Accuracy:", test_accuracy)
 
         #torch.save(model.state_dict(), "model.pt")
 

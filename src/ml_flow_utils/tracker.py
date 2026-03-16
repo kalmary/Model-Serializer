@@ -6,6 +6,8 @@ import shutil
 from pathlib import Path
 from mlflow.tracking import MlflowClient
 from src.ml_flow_utils.config import MLFlowConfig
+import pandas as pd
+import tempfile
 
 class MLFlowTracker:
 
@@ -57,8 +59,18 @@ class MLFlowTracker:
     def log_dataset(self, path: str | Path):
         dataset_path = Path(path)
         mlflow.log_param("dataset_path", str(dataset_path))
-        #change to multiple or one
 
+    def log_metrics(self, metrics: dict, step: int | None = None):
+        mlflow.log_metrics(metrics, step=step)
+
+    def log_metrics_artfact(self, metrics: dict):
+
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, data in metrics.items():
+                path = Path(tmp) / f"{name}.csv"
+                pd.DataFrame(data).to_csv(path, index=False)
+                mlflow.log_artifact(str(path))
+            
     def log_model(self, model, model_name: str):
 
         if self.model_id is not None:
@@ -79,17 +91,4 @@ class MLFlowTracker:
         os.rename(pth_path, pt_path)
 
 
-        #change the "models" path
-
-
-    def log_metrics(self):
-
-        mlflow.log_metrics
-        pass
-
-
-
-
-
 # add exceptions (like wrong path)
-#change var names

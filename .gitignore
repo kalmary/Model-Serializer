@@ -6,4 +6,4 @@
 
 __pycache__/
 
-/src/tests/titanic_pytorch_mlflow_test/mlflow_data
+/src/tests/titanic_pytorch_mlflow_test/mlflow_data/

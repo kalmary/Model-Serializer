@@ -2,9 +2,9 @@ import torch
 from torch.utils.data import DataLoader, random_split
 import torch.nn as nn
 import torch.optim as optim
+from src.ml_flow_utils.tracker import MLFlowTracker
 
-
-def train_model(dataset, model, train_config):
+def train_model(dataset, model, train_config, logger):
 
     batch_size = train_config["batch_size"]
     lr = train_config["learning_rate"]
@@ -50,6 +50,8 @@ def train_model(dataset, model, train_config):
             total += y.size(0)
 
         accuracy = correct / total
+        if logger:
+            logger.log_metrics({"accuracy": accuracy}, step=epoch)
 
         print(
             f"Epoch {epoch+1}/{epochs} "
