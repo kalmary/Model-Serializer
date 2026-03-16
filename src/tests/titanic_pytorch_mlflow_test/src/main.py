@@ -30,8 +30,8 @@ def main():
     model, test_loader = train_model(dataset, model, train_config, logger)
 
     
-    logger.log_model_config("/home/michal/code/Model-Serializer/config/config_model_randlanet.json")
-    logger.log_train_config("/home/michal/code/Model-Serializer/config/config_train_randlanet.json")
+    logger.log_config("/home/michal/code/Model-Serializer/config/config_model_randlanet.json")
+    logger.log_config("/home/michal/code/Model-Serializer/config/config_train_randlanet.json")
     logger.log_dataset(dataset_path)
     logger.log_model(model=model, model_name="model_test")
     

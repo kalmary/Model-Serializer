@@ -51,7 +51,7 @@ def train_model(dataset, model, train_config, logger):
 
         accuracy = correct / total
         if logger:
-            logger.log_metrics({"accuracy": accuracy}, step=epoch)
+            logger.log_metrics({"accuracy": accuracy, "total_loss": total_loss}, step=epoch)
 
         print(
             f"Epoch {epoch+1}/{epochs} "

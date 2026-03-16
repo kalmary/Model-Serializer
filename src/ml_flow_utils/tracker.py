@@ -17,7 +17,7 @@ class MLFlowTracker:
         self.client = client
         self.model_id = None
 
-    def log_train_config(self, path: str | Path, save_as_parameters: bool = True):
+    def log_config(self, path: str | Path, save_as_parameters: bool = True):
         path = Path(path)
 
         if save_as_parameters:
@@ -37,25 +37,6 @@ class MLFlowTracker:
 
         mlflow.log_artifact(str(path))
 
-    def log_model_config(self, path: str | Path, save_as_parameters: bool = True):
-        path = Path(path)
-
-        if save_as_parameters:
-            with path.open("r") as f:
-                data = json.load(f)
-
-            run = mlflow.active_run()
-            if run:
-                existing_keys = set(mlflow.MlflowClient().get_run(run.info.run_id).data.params.keys())
-            else:
-                existing_keys = set()
-
-            new_params = {k: v for k, v in data.items() if k not in existing_keys}
-
-            if new_params:
-                mlflow.log_params(new_params)
-
-        mlflow.log_artifact(str(path))
 
     def log_dataset(self, path: str | Path):
         dataset_path = Path(path)
@@ -84,7 +65,6 @@ class MLFlowTracker:
         
         model_info = mlflow.pytorch.log_model(pytorch_model=model, name=model_name) # type: ignore
         self.model_id = model_info.model_id
-        self.model_key = model_info.tags
 
         # model extension change from .pth to .pt
         pth_path = os.path.join(self.artifact_dir, self.model_dir, self.model_id, "artifacts/data/model.pth")
