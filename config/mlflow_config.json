@@ -1,20 +1,17 @@
 {
   "tracking_uri": "sqlite://///home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/mlflow_data/db_mlflow/mlflow.db",
   "registry_uri": "sqlite://///home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/mlflow_data/db_mlflow/mlflow.db",
+  "artifact_dir": "/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/mlflow_data/artifacts",
   "experiment_name": "pytorch-model-experiments",
-  "create_experiment_if_missing": true,
-  "run_name_template": "{model_type}_{timestamp}",
-  "nested_runs": false,
-  "experiment_description": "experiments for various pytorch models",
-  "tags": {
+  "run_name": "tytanic",
+  "experiment_tags": {
     "framework": "pytorch",
     "project": "deep-learning"
+  },  
+  "run_tags": {
+    "model_type": "ResNet"
   },
-  "register_model": true,
-  "registered_model_name": "classifier-model",
-  "registry_stage": "Staging",
-  "artifact_dir": "/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/mlflow_data/artifacts",
-  "checkpoint_dir": "checkpoints",
+  "config_dir": "config",
   "plot_dir": "plots",
   "model_dir": "model"
 }

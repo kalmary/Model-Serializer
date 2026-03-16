@@ -11,8 +11,9 @@ import tempfile
 
 class MLFlowTracker:
 
-    def __init__(self, client: MlflowClient, artifact_dir: str) -> None:
-        self.artifact_dir = artifact_dir
+    def __init__(self, client: MlflowClient, config: MLFlowConfig) -> None:
+        self.artifact_dir = config.artifact_dir
+        self.model_dir = config.models_dir
         self.client = client
         self.model_id = None
 
@@ -74,7 +75,7 @@ class MLFlowTracker:
     def log_model(self, model, model_name: str):
 
         if self.model_id is not None:
-            model_path = os.path.join(self.artifact_dir, "models", self.model_id)
+            model_path = os.path.join(self.artifact_dir, self.model_dir, self.model_id)
 
             if os.path.exists(model_path):
                 shutil.rmtree(model_path)
@@ -86,7 +87,7 @@ class MLFlowTracker:
         self.model_key = model_info.tags
 
         # model extension change from .pth to .pt
-        pth_path = os.path.join(self.artifact_dir, "models", self.model_id, "artifacts/data/model.pth")
+        pth_path = os.path.join(self.artifact_dir, self.model_dir, self.model_id, "artifacts/data/model.pth")
         pt_path = os.path.splitext(pth_path)[0] + ".pt"
         os.rename(pth_path, pt_path)
 

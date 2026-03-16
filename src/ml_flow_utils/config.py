@@ -9,11 +9,19 @@ class MLFlowConfig:
         self,
         tracking_uri: str,
         experiment_name: str,
+        run_name: str,
         artifact_dir: str,
+        run_tags: dict | None = None,
+        experiment_tags: dict | None = None,
+        models_dir: str = "models"
     ):
         self.tracking_uri = tracking_uri
         self.experiment_name = experiment_name
+        self.experiment_tags = experiment_tags
+        self.run_name = run_name
+        self.run_tags = run_tags    
         self.artifact_dir = artifact_dir
+        self.models_dir = models_dir
 
     @classmethod
     def from_json(cls, path: str | Path):
@@ -27,19 +35,28 @@ class MLFlowConfig:
         filtered = {k: v for k, v in data.items() if k in valid_params}
         return cls(**filtered)
 
-    def apply(self) -> MlflowClient:
+
+    def apply(self, run_name: str | None = None) -> MlflowClient:
         """
         Configure MLflow environment and ensure the experiment exists.
         """
+        if run_name is None:
+            run_name = self.run_name
+
         mlflow.set_tracking_uri(self.tracking_uri)
 
         experiment = mlflow.get_experiment_by_name(self.experiment_name)
 
         if experiment is None:
-            self.experiment_id = mlflow.create_experiment(self.experiment_name, self.artifact_dir)
+            self.experiment_id = mlflow.create_experiment(
+                name=self.experiment_name,
+                artifact_location=self.artifact_dir,
+                tags=self.experiment_tags)
         else:
             self.experiment_id = experiment.experiment_id
 
         mlflow.set_experiment(self.experiment_name)
+
+        mlflow.start_run(run_name=run_name, tags=self.run_tags)
 
         return MlflowClient(tracking_uri=self.tracking_uri)
