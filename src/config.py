@@ -35,7 +35,6 @@ class MLFlowConfig:
         filtered = {k: v for k, v in data.items() if k in valid_params}
         return cls(**filtered)
 
-
     def apply(self, run_name: str | None = None) -> MlflowClient:
         """
         Configure MLflow environment and ensure the experiment exists.
@@ -57,6 +56,10 @@ class MLFlowConfig:
 
         mlflow.set_experiment(self.experiment_name)
 
-        mlflow.start_run(run_name=run_name, tags=self.run_tags)
+        try:
+            mlflow.start_run(run_name=run_name, tags=self.run_tags)
+        except:
+            print("Another run is already active. To start a new run, first end this one")
+            pass
 
         return MlflowClient(tracking_uri=self.tracking_uri)
