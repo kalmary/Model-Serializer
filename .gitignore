@@ -5,5 +5,6 @@
 /quickstart_code
 
 __pycache__/
-/tests
+src/tests
 /config
+mlflow_data/
