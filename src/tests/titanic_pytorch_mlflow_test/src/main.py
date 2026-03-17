@@ -5,8 +5,8 @@ from .model import TitanicModel
 from .train import train_model
 from .evaluate import evaluate
 from .utils import load_json
-from src.ml_flow_utils.config import MLFlowConfig
-from src.ml_flow_utils.tracker import MLFlowTracker
+from src.config import MLFlowConfig
+from src.tracker import MLFlowTracker
 
 
 dataset_path = "/home/michal/code/Model-Serializer/src/tests/titanic_pytorch_mlflow_test/data/Titanic-Dataset.csv"

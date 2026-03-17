@@ -5,5 +5,5 @@
 /quickstart_code
 
 __pycache__/
-
-/src/tests/titanic_pytorch_mlflow_test/mlflow_data/
+/tests
+/config

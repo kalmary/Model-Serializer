@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader, random_split
 import torch.nn as nn
 import torch.optim as optim
-from src.ml_flow_utils.tracker import MLFlowTracker
+from src.tracker import MLFlowTracker
 
 def train_model(dataset, model, train_config, logger):
 
