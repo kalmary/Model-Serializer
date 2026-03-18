@@ -8,6 +8,7 @@ from mlflow.tracking import MlflowClient
 from src.config import MLFlowConfig
 import pandas as pd
 import tempfile
+from datetime import datetime
 
 class MLFlowTracker:
 
@@ -16,6 +17,7 @@ class MLFlowTracker:
         self.model_dir = config.models_dir
         self.client = client
         self.model_id = None
+        self.model_number = 1
 
     def log_config(self, path: str | Path, save_as_parameters: bool = True):
         """
@@ -148,17 +150,6 @@ class MLFlowTracker:
 
         model_name : str
             Name under which the model will be registered in MLflow.
-
-        Behavior
-        --------
-        - If a model was previously logged (`self.model_id` is not None):
-            - Deletes the corresponding local artifact directory (if it exists)
-            - Deletes the model entry from MLflow via `MlflowClient`
-        - Logs the provided model using `mlflow.pytorch.log_model`
-        - Stores the returned `model_id` for future reference
-        - Renames the saved model file from `.pth` to `.pt` inside the MLflow
-        artifact directory:
-            artifacts/data/model.pth → artifacts/data/model.pt
         """
         if self.model_id is not None:
             model_path = os.path.join(self.artifact_dir, self.model_dir, self.model_id)
@@ -169,11 +160,15 @@ class MLFlowTracker:
             self.client.delete_logged_model(self.model_id)
             print(f"Model: {self.model_id} has been removed from MLFlow")
         
+        model_name = f"{model_name}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{self.model_number}"
         model_info = mlflow.pytorch.log_model(pytorch_model=model, name=model_name) # type: ignore
+        self.model_number += 1
+
         self.model_id = model_info.model_id
         print(f"Model {self.model_id} logged to MLFlow")
 
         # model extension change from .pth to .pt
         pth_path = os.path.join(self.artifact_dir, self.model_dir, self.model_id, "artifacts/data/model.pth")
-        pt_path = os.path.splitext(pth_path)[0] + ".pt"
+        dir_path = os.path.dirname(pth_path)
+        pt_path = os.path.join(dir_path, model_name + ".pt")
         os.rename(pth_path, pt_path)
