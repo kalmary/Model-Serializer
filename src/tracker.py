@@ -9,10 +9,23 @@ from src.config import MLFlowConfig
 import pandas as pd
 import tempfile
 from datetime import datetime
+from typing import Literal
+from dataclasses import dataclass
+from collections import deque
+import torch.nn as nn
+
+@dataclass
+class Model:
+     model: nn.Module
+     metrics: dict
+     metrics_art: dict
+     config: dict
+     best_val: float
+
 
 class MLFlowTracker:
 
-    def __init__(self, client: MlflowClient, config: MLFlowConfig) -> None:
+    def __init__(self, client: MlflowClient, config: MLFlowConfig, number_of_models_to_track: int, min_or_max: Literal["min", "max"]) -> None:
         self.artifact_dir = config.artifact_dir
         self.model_dir = config.models_dir
         self.client = client
@@ -20,6 +33,16 @@ class MLFlowTracker:
         self.model_id = None
         self.model_name = ""
         self.model_number = 1
+
+        self.number_of_models_to_track = number_of_models_to_track
+        self.min_or_max = min_or_max
+        self.models_id_list = deque(maxlen=self.number_of_models_to_track)
+        if self.min_or_max == "max":
+            self.best_objective: float = float('-inf')
+        else:
+            self.best_objective: float = float('inf')
+
+
 
     def log_config(self, config_path: str | Path, save_config_for_model: bool = True, save_as_parameters: bool = True):
         """
@@ -181,3 +204,51 @@ class MLFlowTracker:
         dir_path = os.path.dirname(pth_path)
         pt_path = os.path.join(dir_path, model_name + ".pt")
         os.rename(pth_path, pt_path)
+
+    def log_models(self, model, model_name: str, objective: float):
+
+        self.model_name = f"{model_name}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{self.model_number}"
+        model_info = mlflow.pytorch.log_model(pytorch_model=model, name=self.model_name) # type: ignore
+        self.model_number += 1
+        self.model_id = model_info.model_id
+
+        # model extension change from .pth to .pt
+        pth_path = os.path.join(self.artifact_dir, self.model_dir, self.model_id, "artifacts/data/model.pth")
+        dir_path = os.path.dirname(pth_path)
+        pt_path = os.path.join(dir_path, model_name + ".pt")
+        os.rename(pth_path, pt_path)
+
+        dropped_model_id = self.update_models_tracked(objective)
+        if dropped_model_id is not None:
+            dropped_model_path = os.path.join(self.artifact_dir, self.model_dir, dropped_model_id)
+
+            if os.path.exists(dropped_model_path):
+                shutil.rmtree(dropped_model_path)
+            
+            self.client.delete_logged_model(dropped_model_id)
+
+    def check_if_better(self, objective:float):
+
+        if self.min_or_max == "min" and objective < self.best_objective:
+                self.best_objective = objective
+                return True
+        elif self.min_or_max == "max" and objective > self.best_objective:
+                self.best_objective = objective
+                return True
+        return False
+    
+    def update_models_tracked(self, objective: float):
+        dropped_model_id = None
+
+        if len (self.models_id_list) == self.number_of_models_to_track:
+            dropped_model_id = self.models_id_list[0]
+        self.models_id_list.append(self.model_id)  
+
+        return dropped_model_id  
+    
+    def log_training(self, model: Model, model_name:str, step: int | None = None):
+
+        if self.check_if_better(model.best_val):
+            self.log_metrics(model.metrics, step)
+            self.log_metrics_artifact(model.metrics_art)
+            self.log_models(model.model, model_name, model.best_val)
