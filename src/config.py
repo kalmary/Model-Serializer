@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from datetime import datetime
 import mlflow
 from mlflow import MlflowClient
 
@@ -58,7 +57,7 @@ class MLFlowConfig:
 
         try:
             mlflow.start_run(run_name=run_name, tags=self.run_tags)
-        except:
+        except:  # noqa: E722
             print("Another run is already active. To start a new run, first end this one")
             pass
 

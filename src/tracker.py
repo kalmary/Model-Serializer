@@ -19,7 +19,7 @@ class Model:
      model: nn.Module
      metrics: dict
      metrics_art: dict
-     config: dict
+     config: str | Path
      best_val: float
 
 
@@ -72,7 +72,7 @@ class MLFlowTracker:
                     data = json.load(f)
 
                 if not isinstance(data, dict):
-                    print(f"[WARN] Config is not a dict. Skipping param logging.")
+                    print("[WARN] Config is not a dict. Skipping param logging.")
                     data = None
 
             except Exception as e:
@@ -83,9 +83,8 @@ class MLFlowTracker:
                 try:
                     run = mlflow.active_run()
                     if run:
-                        client = mlflow.MlflowClient()
                         existing_keys = set(
-                            client.get_run(run.info.run_id).data.params.keys()
+                            self.client.get_run(run.info.run_id).data.params.keys()
                         )
                     else:
                         existing_keys = set()
@@ -173,7 +172,7 @@ class MLFlowTracker:
             
     def log_model(self, model, model_name: str):
         """    
-        Log a PyTorch model to MLflow, replacing any previously logged model.
+        Log a single PyTorch model to MLflow, replacing any previously logged model.
 
         Parameters
         ----------
@@ -202,7 +201,7 @@ class MLFlowTracker:
         # model extension change from .pth to .pt
         pth_path = os.path.join(self.artifact_dir, self.model_dir, self.model_id, "artifacts/data/model.pth")
         dir_path = os.path.dirname(pth_path)
-        pt_path = os.path.join(dir_path, model_name + ".pt")
+        pt_path = os.path.join(dir_path, self.model_name + ".pt")
         os.rename(pth_path, pt_path)
 
     def log_models(self, model, model_name: str, objective: float):
@@ -215,16 +214,12 @@ class MLFlowTracker:
         # model extension change from .pth to .pt
         pth_path = os.path.join(self.artifact_dir, self.model_dir, self.model_id, "artifacts/data/model.pth")
         dir_path = os.path.dirname(pth_path)
-        pt_path = os.path.join(dir_path, model_name + ".pt")
+        pt_path = os.path.join(dir_path, self.model_name + ".pt")
         os.rename(pth_path, pt_path)
 
-        dropped_model_id = self.update_models_tracked(objective)
+        dropped_model_id = self.update_models_tracked()
         if dropped_model_id is not None:
-            dropped_model_path = os.path.join(self.artifact_dir, self.model_dir, dropped_model_id)
-
-            if os.path.exists(dropped_model_path):
-                shutil.rmtree(dropped_model_path)
-            
+            self.del_model_folder(dropped_model_id)
             self.client.delete_logged_model(dropped_model_id)
 
     def check_if_better(self, objective:float):
@@ -237,7 +232,7 @@ class MLFlowTracker:
                 return True
         return False
     
-    def update_models_tracked(self, objective: float):
+    def update_models_tracked(self):
         dropped_model_id = None
 
         if len (self.models_id_list) == self.number_of_models_to_track:
@@ -246,9 +241,24 @@ class MLFlowTracker:
 
         return dropped_model_id  
     
+    def del_model_folder(self, dropped_model_id):
+        dropped_model_path = os.path.join(self.artifact_dir, self.model_dir, dropped_model_id)
+
+        if os.path.exists(dropped_model_path):
+            shutil.rmtree(dropped_model_path)    
+
+    def del_model_art(self, dropped_model_id):
+        dropped_model_art_path = self.model_name
+
+        if os.path.exists(dropped_model_art_path):
+            shutil.rmtree(dropped_model_art_path)    
+
+
     def log_training(self, model: Model, model_name:str, step: int | None = None):
 
-        if self.check_if_better(model.best_val):
-            self.log_metrics(model.metrics, step)
-            self.log_metrics_artifact(model.metrics_art)
-            self.log_models(model.model, model_name, model.best_val)
+        if self.check_if_better(objective=model.best_val):
+            self.log_metrics(metrics=model.metrics, step=step)
+            self.log_metrics_artifact(metrics=model.metrics_art,save_metrics_for_model=True)
+            self.log_models(model=model.model, model_name=model_name, objective=model.best_val)
+            self.log_config(config_path=model.config, save_config_for_model=True, save_as_parameters=False)
+            
