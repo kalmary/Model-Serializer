@@ -33,7 +33,7 @@ class MLFlowTracker:
         self.model_id = None
         self.model_name = ""
         self.model_number = 1
-
+        self.dropped_model_id = None
         self.number_of_models_to_track = number_of_models_to_track
         self.min_or_max = min_or_max
         self.models_id_list = deque(maxlen=self.number_of_models_to_track)
@@ -81,13 +81,9 @@ class MLFlowTracker:
 
             if data:
                 try:
-                    run = mlflow.active_run()
-                    if run:
-                        existing_keys = set(
-                            self.client.get_run(run.info.run_id).data.params.keys()
-                        )
-                    else:
-                        existing_keys = set()
+                    existing_keys = set(
+                        self.client.get_run(self.run_id).data.params.keys()
+                    )
 
                     new_params = {
                         k: v for k, v in data.items()
@@ -217,12 +213,13 @@ class MLFlowTracker:
         pt_path = os.path.join(dir_path, self.model_name + ".pt")
         os.rename(pth_path, pt_path)
 
-        dropped_model_id = self.update_models_tracked()
-        if dropped_model_id is not None:
-            self.del_model_folder(dropped_model_id)
-            self.client.delete_logged_model(dropped_model_id)
+        self.update_models_tracked()
+        if self.dropped_model_id is not None:
+            self.del_model_folder(self.dropped_model_id)
+            self.del_model_art(self.dropped_model_id)
+            self.client.delete_logged_model(self.dropped_model_id)
 
-    def check_if_better(self, objective:float):
+    def check_if_better(self, objective:float) -> bool:
 
         if self.min_or_max == "min" and objective < self.best_objective:
                 self.best_objective = objective
@@ -233,13 +230,11 @@ class MLFlowTracker:
         return False
     
     def update_models_tracked(self):
-        dropped_model_id = None
 
         if len (self.models_id_list) == self.number_of_models_to_track:
-            dropped_model_id = self.models_id_list[0]
+            self.dropped_model_id = self.models_id_list[0]
         self.models_id_list.append(self.model_id)  
 
-        return dropped_model_id  
     
     def del_model_folder(self, dropped_model_id):
         dropped_model_path = os.path.join(self.artifact_dir, self.model_dir, dropped_model_id)
@@ -248,17 +243,23 @@ class MLFlowTracker:
             shutil.rmtree(dropped_model_path)    
 
     def del_model_art(self, dropped_model_id):
-        dropped_model_art_path = self.model_name
-
+        model_name = mlflow.get_logged_model(dropped_model_id).name
+        dropped_model_art_path = os.path.join(
+            self.artifact_dir,
+            self.run_id,
+            "artifacts",
+            model_name
+        )
+        print(f"Deleting artifact folder: {dropped_model_art_path}")
         if os.path.exists(dropped_model_art_path):
-            shutil.rmtree(dropped_model_art_path)    
+            shutil.rmtree(dropped_model_art_path)
 
 
     def log_training(self, model: Model, model_name:str, step: int | None = None):
 
         if self.check_if_better(objective=model.best_val):
+            self.log_models(model=model.model, model_name=model_name, objective=model.best_val)
             self.log_metrics(metrics=model.metrics, step=step)
             self.log_metrics_artifact(metrics=model.metrics_art,save_metrics_for_model=True)
-            self.log_models(model=model.model, model_name=model_name, objective=model.best_val)
             self.log_config(config_path=model.config, save_config_for_model=True, save_as_parameters=False)
             
