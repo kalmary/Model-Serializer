@@ -111,7 +111,7 @@ class MLFlowTracker:
         except FileNotFoundError:
             print(f"No such file or directory: {path}. Skipping this dataset logging.")
 
-    def log_metrics(self, metrics: dict, step: int | None = None):
+    def log_metrics(self, metrics: dict, step: int | None = None, save_as_artifact: bool = True):
         """    
         Log scalar metrics to MLflow.
 
@@ -128,7 +128,16 @@ class MLFlowTracker:
 
         try:
             mlflow.log_metrics(metrics, step=step)
-            print(f"Metrics: {metrics} have been logged to MLFlow ")  
+            print(f"Metrics: {metrics} have been logged to MLFlow ")
+
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / f"metrics_step_{step}.json"
+                with path.open("w") as f:
+                    json.dump(metrics, f)
+                if save_as_artifact and self.model_name != "":
+                    mlflow.log_artifact(local_path=str(path), artifact_path=self.model_name)
+
+                print(f"Metrics: {metrics} file has been logged to MLFlow artifacts.")
         except Exception as e:
             print(f"[WARN] Failed to log metrics: {e}")
 
@@ -165,8 +174,11 @@ class MLFlowTracker:
                         print(f"[WARN] Failed for {name}: {e}")
         except Exception as e:
             print(f"[WARN] Artifact logging failed entirely: {e}")
+    """
+    """
             
     def log_model(self, model, model_name: str):
+        #curently not used
         """    
         Log a single PyTorch model to MLflow, replacing any previously logged model.
 
@@ -200,13 +212,13 @@ class MLFlowTracker:
         pt_path = os.path.join(dir_path, self.model_name + ".pt")
         os.rename(pth_path, pt_path)
 
-    def log_models(self, model, model_name: str, objective: float):
-
+    def log_models(self, model, model_name: str):
+        #curenlty used
         self.model_name = f"{model_name}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{self.model_number}"
         model_info = mlflow.pytorch.log_model(pytorch_model=model, name=self.model_name) # type: ignore
         self.model_number += 1
         self.model_id = model_info.model_id
-
+        
         # model extension change from .pth to .pt
         pth_path = os.path.join(self.artifact_dir, self.model_dir, self.model_id, "artifacts/data/model.pth")
         dir_path = os.path.dirname(pth_path)
@@ -243,6 +255,7 @@ class MLFlowTracker:
             shutil.rmtree(dropped_model_path)    
 
     def del_model_art(self, dropped_model_id):
+
         model_name = mlflow.get_logged_model(dropped_model_id).name
         dropped_model_art_path = os.path.join(
             self.artifact_dir,
@@ -258,7 +271,7 @@ class MLFlowTracker:
     def log_training(self, model: Model, model_name:str, step: int | None = None):
 
         if self.check_if_better(objective=model.best_val):
-            self.log_models(model=model.model, model_name=model_name, objective=model.best_val)
+            self.log_models(model=model.model, model_name=model_name)
             self.log_metrics(metrics=model.metrics, step=step)
             self.log_metrics_artifact(metrics=model.metrics_art,save_metrics_for_model=True)
             self.log_config(config_path=model.config, save_config_for_model=True, save_as_parameters=False)
