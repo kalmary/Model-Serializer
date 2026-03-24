@@ -111,7 +111,7 @@ class MLFlowTracker:
         except FileNotFoundError:
             print(f"No such file or directory: {path}. Skipping this dataset logging.")
 
-    def log_metrics(self, metrics: dict, step: int | None = None, save_as_artifact: bool = True):
+    def log_metrics(self, metrics: dict, step: int | None = None, save_as_artifact: bool = True, model_id: str | None = None):
         """    
         Log scalar metrics to MLflow.
 
@@ -127,7 +127,7 @@ class MLFlowTracker:
         """
 
         try:
-            mlflow.log_metrics(metrics, step=step)
+            mlflow.log_metrics(metrics, step=step, model_id=model_id)
             print(f"Metrics: {metrics} have been logged to MLFlow ")
 
             with tempfile.TemporaryDirectory() as tmp:
@@ -210,10 +210,10 @@ class MLFlowTracker:
         pt_path = os.path.join(dir_path, self.model_name + ".pt")
         os.rename(pth_path, pt_path)
 
-    def log_models(self, model, model_name: str):
+    def log_models(self, model, model_name: str, step: int = 0):
         #curenlty used
         self.model_name = f"{model_name}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{self.model_number}"
-        model_info = mlflow.pytorch.log_model(pytorch_model=model, name=self.model_name) # type: ignore
+        model_info = mlflow.pytorch.log_model(pytorch_model=model, name=self.model_name, step=step) # type: ignore
         self.model_number += 1
         self.model_id = model_info.model_id
         
@@ -269,8 +269,8 @@ class MLFlowTracker:
     def log_training(self, model: Model, model_name:str, step: int | None = None):
 
         if self.check_if_better(objective=model.best_val):
-            self.log_models(model=model.model, model_name=model_name)
-            self.log_metrics(metrics=model.metrics, step=step)
+            self.log_models(model=model.model, model_name=model_name, step=step or 0)
+            self.log_metrics(metrics=model.metrics, step=step, model_id=self.model_id)
             self.log_metrics_artifact(metrics=model.metrics_art,save_metrics_for_model=True)
             self.log_config(config_path=model.config, save_config_for_model=True, save_as_parameters=False)
             
