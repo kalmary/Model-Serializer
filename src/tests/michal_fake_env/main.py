@@ -22,6 +22,7 @@ def main():
     logger = MLFlowTracker(client=client, config=config, number_of_models_to_track=2, min_or_max="max")
     logger.log_config(config_path=model_config_path, save_config_for_model=False, save_as_parameters=True)
     logger.log_config(config_path=training_config_path, save_config_for_model=False, save_as_parameters=False)
+    logger.log_dataset(path="config/wynik 1.las")
 
     for idx, i in enumerate(accuracy):
         model = Model(model=nn.Sequential(nn.Linear(2,1)),
