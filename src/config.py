@@ -1,8 +1,11 @@
 import json
 import inspect
+import logging
 from pathlib import Path
 import mlflow
 from mlflow import MlflowClient
+
+logger = logging.getLogger(__name__)
 
 class MLFlowConfig:
     def __init__(
@@ -59,6 +62,6 @@ class MLFlowConfig:
         try:
             mlflow.start_run(run_name=run_name, tags=self.run_tags)
         except Exception:
-            print("Another run is already active. To start a new run, first end this one")
+            logger.warning("Another run is already active. To start a new run, first end this one")
 
         return MlflowClient(tracking_uri=self.tracking_uri)
