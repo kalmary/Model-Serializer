@@ -45,7 +45,7 @@ class MLFlowTracker:
 
 
 
-    def log_config(self, config_path: str | Path, save_config_for_model: bool = True, save_as_parameters: bool = True):
+    def log_config(self, config_path: str | Path, save_config_for_model: bool = True, save_as_parameters: bool = True, artifact_path: str = ""):
         """
         Log a configuration file to MLflow as both an artifact and optional parameters.
 
@@ -91,9 +91,9 @@ class MLFlowTracker:
 
                 except Exception as e:
                     logger.warning(f"Failed to log params: {e}")
-        if save_config_for_model and self.model_name != "":
-            mlflow.log_artifact(local_path=str(config_path), artifact_path=self.model_name)
-            logger.info(f"Model config from path: {config_path} has been logged to MLFlow.")            
+        if save_config_for_model and artifact_path != "":
+            mlflow.log_artifact(local_path=str(config_path), artifact_path=artifact_path)
+            logger.info(f"Model config from path: {config_path} has been logged to MLFlow.")
         else:
             mlflow.log_artifact(local_path=str(config_path))
             logger.info(f"Global config from path: {config_path} has been logged to MLFlow.")
@@ -107,7 +107,7 @@ class MLFlowTracker:
         mlflow.log_param("dataset_path", str(dataset_path))
         logger.info(f"Dataset from path: {path} has been logged to MLFlow")
 
-    def log_metrics(self, metrics: dict, step: int | None = None, save_as_artifact: bool = True, model_id: str | None = None):
+    def log_metrics(self, metrics: dict, step: int | None = None, save_as_artifact: bool = True, model_id: str | None = None, artifact_path: str = ""):
         """    
         Log scalar metrics to MLflow.
 
@@ -130,14 +130,14 @@ class MLFlowTracker:
                 path = Path(tmp) / "metrics.json"
                 with path.open("w") as f:
                     json.dump(metrics, f)
-                if save_as_artifact and self.model_name != "":
-                    mlflow.log_artifact(local_path=str(path), artifact_path=self.model_name)
+                if save_as_artifact and artifact_path != "":
+                    mlflow.log_artifact(local_path=str(path), artifact_path=artifact_path)
 
                 logger.info(f"Metrics: {metrics} file has been logged to MLFlow artifacts.")
         except Exception as e:
             logger.warning(f"Failed to log metrics: {e}")
 
-    def log_metrics_artifact(self, metrics: dict, save_metrics_for_model: bool = True):
+    def log_metrics_artifact(self, metrics: dict, save_metrics_for_model: bool = True, artifact_path: str = ""):
         """    
         Log structured metrics as CSV artifacts in MLflow.
 
@@ -161,8 +161,8 @@ class MLFlowTracker:
                     try:
                         path = Path(tmp) / f"{name}.csv"
                         pd.DataFrame(data).to_csv(path, index=False)
-                        if save_metrics_for_model and self.model_name != "":
-                            mlflow.log_artifact(local_path=str(path), artifact_path=self.model_name)
+                        if save_metrics_for_model and artifact_path != "":
+                            mlflow.log_artifact(local_path=str(path), artifact_path=artifact_path)
                         else:
                             mlflow.log_artifact(str(path))
                         logger.info(f"Metric: {name} file has been logged to MLFlow artifacts.")
@@ -232,7 +232,7 @@ class MLFlowTracker:
         if self.check_if_better(objective=model.best_val):
             self._current_best_val = model.best_val
             self.log_models(model=model.model, model_name=model_name, step=step or 0)
-            self.log_metrics(metrics=model.metrics, step=step, model_id=self.model_id)
-            self.log_metrics_artifact(metrics=model.metrics_art,save_metrics_for_model=True)
-            self.log_config(config_path=model.config, save_config_for_model=True, save_as_parameters=True)
+            self.log_metrics(metrics=model.metrics, step=step, model_id=self.model_id, artifact_path=self.model_name)
+            self.log_metrics_artifact(metrics=model.metrics_art, save_metrics_for_model=True, artifact_path=self.model_name)
+            self.log_config(config_path=model.config, save_config_for_model=True, save_as_parameters=True, artifact_path=self.model_name)
             
