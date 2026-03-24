@@ -1,7 +1,7 @@
+import logging
 import mlflow
 import mlflow.pytorch
 import json
-import os
 import shutil
 from pathlib import Path
 from mlflow.tracking import MlflowClient
@@ -12,6 +12,8 @@ from datetime import datetime
 from typing import Literal
 from dataclasses import dataclass
 import torch.nn as nn
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class Model:
@@ -62,7 +64,7 @@ class MLFlowTracker:
         data = None
 
         if not config_path.exists():
-            print(f"[WARN] No such file: {config_path}. Skipping logging.")
+            logger.warning(f"No such file: {config_path}. Skipping logging.")
             return
 
         if save_as_parameters:
@@ -71,11 +73,11 @@ class MLFlowTracker:
                     data = json.load(f)
 
                 if not isinstance(data, dict):
-                    print("[WARN] Config is not a dict. Skipping param logging.")
+                    logger.warning("Config is not a dict. Skipping param logging.")
                     data = None
 
             except Exception as e:
-                print(f"[WARN] Failed to read config {config_path}: {e}")
+                logger.warning(f"Failed to read config {config_path}: {e}")
                 data = None
 
             if data:
@@ -83,32 +85,27 @@ class MLFlowTracker:
                     existing_keys = set(
                         self.client.get_run(self.run_id).data.params.keys()
                     )
-
-                    new_params = {
-                        k: v for k, v in data.items()
-                        if k not in existing_keys
-                    }
-
+                    new_params = {k: v for k, v in data.items() if k not in existing_keys}
                     if new_params:
                         mlflow.log_params(new_params)
 
                 except Exception as e:
-                    print(f"[WARN] Failed to log params: {e}")
+                    logger.warning(f"Failed to log params: {e}")
         if save_config_for_model and self.model_name != "":
             mlflow.log_artifact(local_path=str(config_path), artifact_path=self.model_name)
-            print(f"Model config from path: {config_path} has been logged to MLFlow.")            
+            logger.info(f"Model config from path: {config_path} has been logged to MLFlow.")            
         else:
             mlflow.log_artifact(local_path=str(config_path))
-            print(f"Global config from path: {config_path} has been logged to MLFlow.")
+            logger.info(f"Global config from path: {config_path} has been logged to MLFlow.")
 
     def log_dataset(self, path: str | Path):
         """Log dataset path to MLFlow"""
         dataset_path = Path(path)
         if not dataset_path.exists():
-            print(f"No such file or directory: {path}. Skipping this dataset logging.")
+            logger.warning(f"No such file or directory: {path}. Skipping this dataset logging.")
             return
         mlflow.log_param("dataset_path", str(dataset_path))
-        print(f"Dataset from path: {path} has been logged to MLFlow")
+        logger.info(f"Dataset from path: {path} has been logged to MLFlow")
 
     def log_metrics(self, metrics: dict, step: int | None = None, save_as_artifact: bool = True, model_id: str | None = None):
         """    
@@ -127,18 +124,18 @@ class MLFlowTracker:
 
         try:
             mlflow.log_metrics(metrics, step=step, model_id=model_id)
-            print(f"Metrics: {metrics} have been logged to MLFlow ")
+            logger.info(f"Metrics: {metrics} have been logged to MLFlow")
 
             with tempfile.TemporaryDirectory() as tmp:
-                path = Path(tmp) / f"metrics_step_{step}.json"
+                path = Path(tmp) / "metrics.json"
                 with path.open("w") as f:
                     json.dump(metrics, f)
                 if save_as_artifact and self.model_name != "":
                     mlflow.log_artifact(local_path=str(path), artifact_path=self.model_name)
 
-                print(f"Metrics: {metrics} file has been logged to MLFlow artifacts.")
+                logger.info(f"Metrics: {metrics} file has been logged to MLFlow artifacts.")
         except Exception as e:
-            print(f"[WARN] Failed to log metrics: {e}")
+            logger.warning(f"Failed to log metrics: {e}")
 
     def log_metrics_artifact(self, metrics: dict, save_metrics_for_model: bool = True):
         """    
@@ -168,59 +165,22 @@ class MLFlowTracker:
                             mlflow.log_artifact(local_path=str(path), artifact_path=self.model_name)
                         else:
                             mlflow.log_artifact(str(path))
-                        print(f"Metric: {name} file has been logged to MLFlow artifacts.")
+                        logger.info(f"Metric: {name} file has been logged to MLFlow artifacts.")
                     except Exception as e:
-                        print(f"[WARN] Failed for {name}: {e}")
+                        logger.warning(f"Failed for {name}: {e}")
         except Exception as e:
-            print(f"[WARN] Artifact logging failed entirely: {e}")
+            logger.warning(f"Artifact logging failed entirely: {e}")
             
-    def log_model(self, model, model_name: str):
-        #curently not used
-        """    
-        Log a single PyTorch model to MLflow, replacing any previously logged model.
-
-        Parameters
-        ----------
-        model : torch.nn.Module
-            The PyTorch model instance to be logged.
-
-        model_name : str
-            Name under which the model will be registered in MLflow.
-        """
-        if self.model_id is not None:
-            model_path = os.path.join(self.artifact_dir, self.model_dir, self.model_id)
-
-            if os.path.exists(model_path):
-                shutil.rmtree(model_path)
-
-            self.client.delete_logged_model(self.model_id)
-            print(f"Model: {self.model_id} has been removed from MLFlow")
-        
-        self.model_name = f"{model_name}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{self.model_number}"
-        model_info = mlflow.pytorch.log_model(pytorch_model=model, name=self.model_name) # type: ignore
-        self.model_number += 1
-
-        self.model_id = model_info.model_id
-        print(f"Model {self.model_id} logged to MLFlow")
-
-        # model extension change from .pth to .pt
-        pth_path = os.path.join(self.artifact_dir, self.model_dir, self.model_id, "artifacts/data/model.pth")
-        dir_path = os.path.dirname(pth_path)
-        pt_path = os.path.join(dir_path, self.model_name + ".pt")
-        os.rename(pth_path, pt_path)
-
     def log_models(self, model, model_name: str, step: int = 0):
-        #curenlty used
         self.model_name = f"{model_name}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{self.model_number}"
         model_info = mlflow.pytorch.log_model(pytorch_model=model, name=self.model_name, step=step) # type: ignore
         self.model_number += 1
         self.model_id = model_info.model_id
         
         # model extension change from .pth to .pt
-        pth_path = os.path.join(self.artifact_dir, self.model_dir, self.model_id, "artifacts/data/model.pth")
-        dir_path = os.path.dirname(pth_path)
-        pt_path = os.path.join(dir_path, self.model_name + ".pt")
-        os.rename(pth_path, pt_path)
+        pth_path = Path(self.artifact_dir) / self.model_dir / self.model_id / "artifacts/data/model.pth"
+        pt_path = pth_path.with_name(self.model_name + ".pt")
+        pth_path.rename(pt_path)
 
         self.update_models_tracked()
         if self.dropped_model_id is not None:
@@ -253,22 +213,17 @@ class MLFlowTracker:
 
     
     def del_model_folder(self, dropped_model_id):
-        dropped_model_path = os.path.join(self.artifact_dir, self.model_dir, dropped_model_id)
+        dropped_model_path = Path(self.artifact_dir) / self.model_dir / dropped_model_id
 
-        if os.path.exists(dropped_model_path):
-            shutil.rmtree(dropped_model_path)    
+        if dropped_model_path.exists():
+            shutil.rmtree(dropped_model_path)
 
     def del_model_art(self, dropped_model_id):
 
         model_name = mlflow.get_logged_model(dropped_model_id).name
-        dropped_model_art_path = os.path.join(
-            self.artifact_dir,
-            self.run_id,
-            "artifacts",
-            model_name
-        )
-        print(f"Deleting artifact folder: {dropped_model_art_path}")
-        if os.path.exists(dropped_model_art_path):
+        dropped_model_art_path = Path(self.artifact_dir) / self.run_id / "artifacts" / model_name
+        logger.info(f"Deleting artifact folder: {dropped_model_art_path}")
+        if dropped_model_art_path.exists():
             shutil.rmtree(dropped_model_art_path)
 
 
@@ -279,5 +234,5 @@ class MLFlowTracker:
             self.log_models(model=model.model, model_name=model_name, step=step or 0)
             self.log_metrics(metrics=model.metrics, step=step, model_id=self.model_id)
             self.log_metrics_artifact(metrics=model.metrics_art,save_metrics_for_model=True)
-            self.log_config(config_path=model.config, save_config_for_model=True, save_as_parameters=False)
+            self.log_config(config_path=model.config, save_config_for_model=True, save_as_parameters=True)
             
