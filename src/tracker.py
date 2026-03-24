@@ -174,8 +174,6 @@ class MLFlowTracker:
                         print(f"[WARN] Failed for {name}: {e}")
         except Exception as e:
             print(f"[WARN] Artifact logging failed entirely: {e}")
-    """
-    """
             
     def log_model(self, model, model_name: str):
         #curently not used
