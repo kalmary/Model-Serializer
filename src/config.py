@@ -1,7 +1,11 @@
 import json
+import inspect
+import logging
 from pathlib import Path
 import mlflow
 from mlflow import MlflowClient
+
+logger = logging.getLogger(__name__)
 
 class MLFlowConfig:
     def __init__(
@@ -30,7 +34,7 @@ class MLFlowConfig:
         with path.open("r") as f:
             data = json.load(f)
 
-        valid_params = cls.__init__.__code__.co_varnames[:cls.__init__.__code__.co_argcount]
+        valid_params = set(inspect.signature(cls.__init__).parameters.keys()) - {"self"}
         filtered = {k: v for k, v in data.items() if k in valid_params}
         return cls(**filtered)
 
@@ -57,8 +61,7 @@ class MLFlowConfig:
 
         try:
             mlflow.start_run(run_name=run_name, tags=self.run_tags)
-        except:  # noqa: E722
-            print("Another run is already active. To start a new run, first end this one")
-            pass
+        except Exception:
+            logger.warning("Another run is already active. To start a new run, first end this one")
 
         return MlflowClient(tracking_uri=self.tracking_uri)
