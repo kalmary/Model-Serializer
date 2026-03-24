@@ -11,7 +11,6 @@ import tempfile
 from datetime import datetime
 from typing import Literal
 from dataclasses import dataclass
-from collections import deque
 import torch.nn as nn
 
 @dataclass
@@ -36,7 +35,7 @@ class MLFlowTracker:
         self.dropped_model_id = None
         self.number_of_models_to_track = number_of_models_to_track
         self.min_or_max = min_or_max
-        self.models_id_list = deque(maxlen=self.number_of_models_to_track)
+        self.models_id_list: list[tuple[str | None, float]] = []
         if self.min_or_max == "max":
             self.best_objective: float = float('-inf')
         else:
@@ -104,12 +103,12 @@ class MLFlowTracker:
 
     def log_dataset(self, path: str | Path):
         """Log dataset path to MLFlow"""
-        try:
-            dataset_path = Path(path)
-            mlflow.log_param("dataset_path", str(dataset_path))
-            print(f"Dataset from path: {path} has been logged to MLFlow")
-        except FileNotFoundError:
+        dataset_path = Path(path)
+        if not dataset_path.exists():
             print(f"No such file or directory: {path}. Skipping this dataset logging.")
+            return
+        mlflow.log_param("dataset_path", str(dataset_path))
+        print(f"Dataset from path: {path} has been logged to MLFlow")
 
     def log_metrics(self, metrics: dict, step: int | None = None, save_as_artifact: bool = True, model_id: str | None = None):
         """    
@@ -228,6 +227,7 @@ class MLFlowTracker:
             self.del_model_folder(self.dropped_model_id)
             self.del_model_art(self.dropped_model_id)
             self.client.delete_logged_model(self.dropped_model_id)
+            self.dropped_model_id = None
 
     def check_if_better(self, objective:float) -> bool:
 
@@ -240,10 +240,16 @@ class MLFlowTracker:
         return False
     
     def update_models_tracked(self):
-
-        if len (self.models_id_list) == self.number_of_models_to_track:
-            self.dropped_model_id = self.models_id_list[0]
-        self.models_id_list.append(self.model_id)  
+        self.dropped_model_id = None
+        if self.model_id is not None:
+            self.models_id_list.append((self.model_id, self._current_best_val))
+        if len(self.models_id_list) > self.number_of_models_to_track:
+            if self.min_or_max == "max":
+                worst = min(self.models_id_list, key=lambda x: x[1])
+            else:
+                worst = max(self.models_id_list, key=lambda x: x[1])
+            self.dropped_model_id = worst[0]
+            self.models_id_list.remove(worst)
 
     
     def del_model_folder(self, dropped_model_id):
@@ -269,6 +275,7 @@ class MLFlowTracker:
     def log_training(self, model: Model, model_name:str, step: int | None = None):
 
         if self.check_if_better(objective=model.best_val):
+            self._current_best_val = model.best_val
             self.log_models(model=model.model, model_name=model_name, step=step or 0)
             self.log_metrics(metrics=model.metrics, step=step, model_id=self.model_id)
             self.log_metrics_artifact(metrics=model.metrics_art,save_metrics_for_model=True)
