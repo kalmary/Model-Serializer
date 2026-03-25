@@ -20,24 +20,24 @@ class Model:
      model: nn.Module
      metrics: dict
      metrics_art: dict
-     config: str | Path
+     configs: list[str | Path]
      best_val: float
 
 
 class MLFlowTracker:
 
-    def __init__(self, client: MlflowClient, config: MLFlowConfig, number_of_models_to_track: int, min_or_max: Literal["min", "max"] | None) -> None:
+    def __init__(self, client: MlflowClient, config: MLFlowConfig, min_or_max: Literal["min", "max"] | None) -> None:
         self.artifact_dir = config.artifact_dir
         self.model_dir = config.models_dir
         self.client = client
         self.run_id = mlflow.active_run().info.run_id   # type: ignore
         self.model_id = None
-        self.model_name = ""
-        self.model_number = 1
+        self.model_name: str = ""
+        self.model_number: int = 1
         self.dropped_model_id = None
-        self.number_of_models_to_track = number_of_models_to_track
-        self.min_or_max = min_or_max
         self.models_id_list: list[tuple[str | None, float]] = []
+
+        self.min_or_max = min_or_max
         if self.min_or_max == "max":
             self.best_objective: float = float('-inf')
         else:
@@ -171,7 +171,7 @@ class MLFlowTracker:
         except Exception as e:
             logger.warning(f"Artifact logging failed entirely: {e}")
             
-    def log_model(self, model: nn.Module, mode: Literal["training", "evaluation"], model_name: str, step: int | None = None):
+    def log_model(self, model: nn.Module, model_name: str, mode: Literal["training", "evaluation"], number_of_models_to_track: int = 1, step: int | None = None):
         self.model_name = f"{model_name}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{self.model_number}"
         model_info = mlflow.pytorch.log_model(pytorch_model=model, name=self.model_name, step=step) # type: ignore
         self.model_number += 1
@@ -182,7 +182,7 @@ class MLFlowTracker:
         pt_path = pth_path.with_name(self.model_name + ".pt")
         pth_path.rename(pt_path)
         if mode == "training":
-            self.update_models_tracked()
+            self.update_models_tracked(number_of_models_to_track=number_of_models_to_track)
             if self.dropped_model_id is not None:
                 self.del_model_folder(self.dropped_model_id)
                 self.del_model_art(self.dropped_model_id)
@@ -199,11 +199,11 @@ class MLFlowTracker:
                 return True
         return False
     
-    def update_models_tracked(self):
+    def update_models_tracked(self, number_of_models_to_track: int):
         self.dropped_model_id = None
         if self.model_id is not None:
             self.models_id_list.append((self.model_id, self._current_best_val))
-        if len(self.models_id_list) > self.number_of_models_to_track:
+        if len(self.models_id_list) > number_of_models_to_track:
             if self.min_or_max == "max":
                 worst = min(self.models_id_list, key=lambda x: x[1])
             else:
@@ -227,17 +227,19 @@ class MLFlowTracker:
             shutil.rmtree(dropped_model_art_path)
 
 
-    def log_training(self, model: Model, model_name:str, step: int | None = None):
+    def log_training(self, model: Model, model_name:str, number_of_models_to_track: int, step: int | None = None):
 
         if self.check_if_better(objective=model.best_val):
             self._current_best_val = model.best_val
-            self.log_model(model=model.model, mode="training", model_name=model_name, step=step or 0)
+            self.log_model(model=model.model, mode="training", model_name=model_name, number_of_models_to_track=number_of_models_to_track, step=step or 0)
             self.log_metrics(metrics=model.metrics, step=step, model_id=self.model_id, artifact_path=self.model_name)
             self.log_metrics_artifact(metrics=model.metrics_art, save_metrics_for_model=True, artifact_path=self.model_name)
-            self.log_config(config_path=model.config, save_config_for_model=True, save_as_parameters=True, artifact_path=self.model_name)
-            
+            for config_path in model.configs:
+                self.log_config(config_path=config_path, save_config_for_model=True, save_as_parameters=True, artifact_path=self.model_name)
+
     def log_evaluation(self, model: Model, model_name:str):
         self.log_model(model=model.model, mode="evaluation", model_name=model_name)
         self.log_metrics(metrics=model.metrics, model_id=self.model_id, artifact_path=self.model_name)
         self.log_metrics_artifact(metrics=model.metrics_art, save_metrics_for_model=True, artifact_path=self.model_name)
-        self.log_config(config_path=model.config, save_config_for_model=True, save_as_parameters=True, artifact_path=self.model_name)
+        for config_path in model.configs:
+            self.log_config(config_path=config_path, save_config_for_model=True, save_as_parameters=True, artifact_path=self.model_name)
