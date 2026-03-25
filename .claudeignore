@@ -1,0 +1,5 @@
+# .claudeignore
+.venv/
+__pycache__/
+mlflow_data/
+config/
