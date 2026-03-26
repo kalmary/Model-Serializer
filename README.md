@@ -32,7 +32,7 @@ pip install -r requirements.txt
 
 See `config/mlflow_config_readme.txt` for a full description of all config JSON fields.
 
-A complete working example lives in `src/tests/example/main.py`. You can run it with:
+First configure the mlflow_config.json file in the example folder. A complete working example lives in `src/tests/example/main.py`. You can run it with:
 
 ```bash
 python -m src.tests.example.main
