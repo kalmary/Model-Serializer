@@ -19,8 +19,8 @@ def training_run():
     optuna_model_config_path = "config/config_model_randlanet_0.json"
     optuna_training_config_path = "config/config_train_randlanet.json"
 
-    config = MLFlowConfig.from_json('src/tests/michal_fake_env/mlflow_config.json')
-    client = config.apply("Training Run")
+    config = MLFlowConfig.from_json('src/tests/example/mlflow_config.json')
+    client = config.apply(run_name="Training Run")
 
     #logging initial configs and dataset
     logger = MLFlowTracker(client=client, config=config, min_or_max="max")
@@ -44,7 +44,7 @@ def training_run():
 def evaluation_run(best_model_name: str):
 
     # EVALUATION RUN
-    config = MLFlowConfig.from_json('src/tests/michal_fake_env/mlflow_config.json')
+    config = MLFlowConfig.from_json('src/tests/example/mlflow_config.json')
     client = config.apply("Evaluation Run")
     eval_logger = MLFlowTracker(client=client, config=config, min_or_max=None)
     eval_logger.log_dataset(path="config/wynik 1.las")
