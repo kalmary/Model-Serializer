@@ -11,6 +11,7 @@ import tempfile
 from datetime import datetime
 from typing import Literal
 from dataclasses import dataclass
+import torch
 import torch.nn as nn
 
 logger = logging.getLogger(__name__)
@@ -238,8 +239,58 @@ class MLFlowTracker:
                 self.log_config(config_path=config_path, save_config_for_model=True, save_as_parameters=True, artifact_path=self.model_name)
 
     def log_evaluation(self, model: Model, model_name:str):
-        self.log_model(model=model.model, mode="evaluation", model_name=model_name)
-        self.log_metrics(metrics=model.metrics, model_id=self.model_id, artifact_path=self.model_name)
+        self.model_name = model_name
+        mlflow.log_param("evaluated_model", model_name)
+        self.log_metrics(metrics=model.metrics, artifact_path=self.model_name)
         self.log_metrics_artifact(metrics=model.metrics_art, save_metrics_for_model=True, artifact_path=self.model_name)
         for config_path in model.configs:
             self.log_config(config_path=config_path, save_config_for_model=True, save_as_parameters=True, artifact_path=self.model_name)
+
+    
+    def load_model(self, model_name: str) -> tuple[nn.Module, list[Path]]:
+        """
+        Load a previously logged model and its config files by name.
+
+        Parameters
+        ----------
+        model_name : str
+            The full name of the model (e.g., "Resnet_2026-03-25_13-30-40_5").
+
+        Returns
+        -------
+        tuple[nn.Module, list[Path]]
+            The loaded PyTorch model and list of associated config file paths.
+        """
+        active_run = mlflow.active_run()
+        if active_run is None:
+            raise RuntimeError("No active MLflow run. Call config.apply() first.")
+        experiment_id = active_run.info.experiment_id
+
+        results = self.client.search_logged_models(
+            experiment_ids=[experiment_id],
+            filter_string=f"name = '{model_name}'"
+        )
+        
+        if not results:
+            raise ValueError(f"No model found with name '{model_name}'")
+
+        logged_model = results[0]
+        model_id = logged_model.model_id
+        source_run_id = logged_model.source_run_id
+        if source_run_id is None:
+            raise ValueError(f"Model '{model_name}' has no source run ID")
+
+        # Load the .pt file from the model directory
+        model_path = Path(self.artifact_dir) / self.model_dir / model_id / "artifacts" / "data" / f"{model_name}.pt"
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+
+        loaded_model = torch.load(model_path, weights_only=False)
+        logger.info(f"Loaded model from {model_path}")
+
+        # Find config files from the source run's artifact directory
+        config_dir = Path(self.artifact_dir) / source_run_id / "artifacts" / model_name
+        config_paths = sorted(config_dir.glob("*.json")) if config_dir.exists() else []
+        logger.info(f"Found {len(config_paths)} config files for model '{model_name}'")
+
+        return loaded_model, config_paths

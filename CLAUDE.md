@@ -10,11 +10,11 @@ Model-Serializer is a PyTorch model tracking and management library built on MLf
 
 Two main classes in `src/`:
 
-- **`MLFlowConfig`** (`src/config.py`): Loads MLflow configuration from JSON, sets up tracking URI, experiment, and starts a run via `apply()`. Returns an `MlflowClient`.
-- **`MLFlowTracker`** (`src/tracker.py`): Core tracking class. Maintains a list of `(model_id, best_val)` tuples bounded by `number_of_models_to_track`. On each `log_training()` call, checks if the new model beats the current best (min or max objective), and if so: logs the model, metrics, metric artifacts (CSVs), and config. Automatically evicts the worst-performing tracked model (filesystem + MLflow artifacts) when the list is full. Uses Python `logging` module for all output.
+- **`MLFlowConfig`** (`src/config.py`): Loads MLflow configuration from JSON, sets up tracking URI, experiment, and starts a run via `apply()`. Returns an `MlflowClient`. Ends the run via `end_run()`.
+- **`MLFlowTracker`** (`src/tracker.py`): Core tracking class. Maintains a list of `(model_id, best_val)` tuples bounded by `number_of_models_to_track`. On each `log_training()` call, checks if the new model beats the current best (min or max objective), and if so: logs the model, metrics, metric artifacts (CSVs), and config. Automatically evicts the worst-performing tracked model (filesystem + MLflow artifacts) when the list is full. `log_evaluation()` does not save the model file — it logs the evaluated model's name as a parameter and records metrics/configs. `load_model()` retrieves a previously logged model by name from MLflow and returns the loaded `nn.Module` along with its config file paths. Uses Python `logging` module for all output.
 - **`Model`** (`src/tracker.py`): Dataclass bundling a `nn.Module`, scalar metrics dict, non-scalar metrics dict (logged as CSV artifacts), config path, and `best_val` for comparison.
 
-Flow: `MLFlowConfig.from_json()` -> `config.apply()` -> `MLFlowTracker(client, config, ...)` -> loop over `tracker.log_training(model, name, step)`.
+Flow: `MLFlowConfig.from_json()` -> `config.apply()` -> `MLFlowTracker(client, config, ...)` -> loop over `tracker.log_training(model, name, step)`. For evaluation: `tracker.load_model(name)` -> `tracker.log_evaluation(model, name)`.
 
 ## Running Tests
 
