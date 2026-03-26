@@ -30,63 +30,66 @@ pip install -r requirements.txt
 
 ## Quick Start
 
-### 1. Create a config JSON
+See `config/mlflow_config_readme.txt` for a full description of all config JSON fields.
 
-```json
-{
-  "tracking_uri": "sqlite:///mlflow.db",
-  "artifact_dir": "/path/to/artifacts",
-  "experiment_name": "my-experiment",
-  "run_name": "run-1",
-  "models_dir": "models"
-}
+A complete working example lives in `src/tests/example/main.py`. You can run it with:
+
+```bash
+python -m src.tests.example.main
 ```
 
-See `config/mlflow_config_readme.txt` for a full description of all fields.
+The example simulates 7 training epochs with fake accuracy and loss values, keeps only the top 2 models (`number_of_models_to_track=2`, objective `max`), and then loads the best model for an evaluation run. Below is a walkthrough of what it does.
 
-### 2. Training loop
+### 1. Training run
 
 ```python
 import torch.nn as nn
 from src.config import MLFlowConfig
 from src.tracker import MLFlowTracker, Model
 
-config = MLFlowConfig.from_json("mlflow_config.json")
-client = config.apply("Training Run")
+# Simulated metrics for 7 epochs
+accuracy = [0.1, 0.4, 0.35, 0.6, 0.8, 0.90, 0.85]
+loss = [0.9, 0.8, 0.75, 0.6, 0.5, 0.4, 0.35]
+
+config = MLFlowConfig.from_json('src/tests/example/mlflow_config.json')
+client = config.apply(run_name="Training Run")
 
 tracker = MLFlowTracker(client=client, config=config, min_or_max="max")
 
-# Log initial configs and dataset
-tracker.log_config(config_path="config/model_config.json", save_config_for_model=False, save_as_parameters=True)
-tracker.log_dataset(path="data/dataset.las")
+# Log global configs (Optuna search space) and dataset path before training
+tracker.log_config(config_path="config/config_model_randlanet_0.json", save_config_for_model=False, save_as_parameters=True)
+tracker.log_config(config_path="config/config_train_randlanet.json", save_config_for_model=False, save_as_parameters=False)
+tracker.log_dataset(path="config/wynik 1.las")
 
-for epoch in range(num_epochs):
-    # ... train your model ...
+# Training loop — only models that beat the current best accuracy are logged
+for idx, acc in enumerate(accuracy):
     model = Model(
-        model=my_nn,
-        metrics={"accuracy": acc, "loss": loss},
+        model=nn.Sequential(nn.Linear(2, 1)),
+        metrics={"accuracy": acc, "loss": loss[idx]},
         metrics_art={"cm": [[50, 2], [1, 47]]},
-        configs=["config/model_config.json", "config/train_config.json"],
+        configs=["config/config_model_randlanet_1.json", "config/config_train_single_randlanet.json"],
         best_val=acc
     )
-    tracker.log_training(model=model, model_name="Resnet", number_of_models_to_track=2, step=epoch)
+    tracker.log_training(model=model, model_name="Resnet", number_of_models_to_track=2, step=idx)
 
 config.end_run()
 ```
 
-### 3. Evaluation
+With `number_of_models_to_track=2` and `min_or_max="max"`, the tracker keeps only the 2 models with the highest accuracy. When a third model qualifies, the worst of the three is evicted (deleted from disk and MLflow).
+
+### 2. Evaluation run
 
 ```python
-config = MLFlowConfig.from_json("mlflow_config.json")
-client = config.apply("Evaluation Run")
+config = MLFlowConfig.from_json('src/tests/example/mlflow_config.json')
+client = config.apply(run_name="Evaluation Run")
 
 eval_tracker = MLFlowTracker(client=client, config=config, min_or_max=None)
-eval_tracker.log_dataset(path="data/dataset.las")
+eval_tracker.log_dataset(path="config/wynik 1.las")
 
 # Load a model saved during training by its full name
 loaded_model, config_paths = eval_tracker.load_model(model_name="Resnet_2026-03-25_15-00-35_4")
 
-# Run evaluation and log results (no duplicate model file is saved)
+# Log evaluation results — no duplicate model file is saved, only the model name is recorded
 test_metrics = {"accuracy": 0.88, "loss": 0.38}
 model = Model(
     model=loaded_model,
@@ -98,14 +101,6 @@ model = Model(
 eval_tracker.log_evaluation(model=model, model_name="Resnet_2026-03-25_15-00-35_4")
 config.end_run()
 ```
-
-## Running the Example
-
-```bash
-python -m src.tests.michal_fake_env.main
-```
-
-This creates 7 fake models with varying accuracy and tests the tracker with `number_of_models_to_track=2` using max objective, then runs an evaluation on the best model.
 
 ## API Reference
 

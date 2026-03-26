@@ -17,7 +17,7 @@ Additional fields in config JSON (not loaded by MLFlowConfig, but useful for pro
   config_dir         - Directory containing config files
   plot_dir           - Directory for visualization outputs
 
-Example (src/tests/michal_fake_env/mlflow_config.json):
+Example (src/tests/example/mlflow_config.json):
 
   {
     "tracking_uri": "sqlite:////path/to/mlflow.db",
@@ -28,9 +28,3 @@ Example (src/tests/michal_fake_env/mlflow_config.json):
     "run_tags": {"model_type": "ResNet"},
     "model_dir": "model"
   }
-
-Architecture of projects:
-
-  Experiments
-      vision-project-Kuba
-      vision-project-Michal

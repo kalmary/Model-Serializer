@@ -21,7 +21,7 @@ Flow: `MLFlowConfig.from_json()` -> `config.apply()` -> `MLFlowTracker(client, c
 No formal test framework. Run the manual test script from the repo root:
 
 ```
-python -m src.tests.michal_fake_env.main
+python -m src.tests.example.main
 ```
 
 This creates 7 fake models with varying accuracy and tests the tracker with `number_of_models_to_track=2` using max objective.
