@@ -9,8 +9,9 @@ from src.config import MLFlowConfig
 import pandas as pd
 import tempfile
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Sequence
 from dataclasses import dataclass
+import torch
 import torch.nn as nn
 
 logger = logging.getLogger(__name__)
@@ -20,24 +21,35 @@ class Model:
      model: nn.Module
      metrics: dict
      metrics_art: dict
-     config: str | Path
+     configs: Sequence[str | Path]
      best_val: float
 
 
 class MLFlowTracker:
+    """
+    Tracks the top-N best-performing PyTorch models during training via MLflow.
 
-    def __init__(self, client: MlflowClient, config: MLFlowConfig, number_of_models_to_track: int, min_or_max: Literal["min", "max"]) -> None:
+    On each ``log_training()`` call, compares the model's objective value against
+    the current best. If improved, logs the model, metrics, and configs. When the
+    tracked model list exceeds the limit, the worst model is evicted from both
+    the filesystem and MLflow.
+
+    For evaluation, use ``load_model()`` to retrieve a previously saved model,
+    then ``log_evaluation()`` to record metrics without saving a duplicate model file.
+    """
+
+    def __init__(self, client: MlflowClient, config: MLFlowConfig, min_or_max: Literal["min", "max"] | None) -> None:
         self.artifact_dir = config.artifact_dir
         self.model_dir = config.models_dir
         self.client = client
         self.run_id = mlflow.active_run().info.run_id   # type: ignore
         self.model_id = None
-        self.model_name = ""
-        self.model_number = 1
+        self.model_name: str = ""
+        self.model_number: int = 1
         self.dropped_model_id = None
-        self.number_of_models_to_track = number_of_models_to_track
-        self.min_or_max = min_or_max
         self.models_id_list: list[tuple[str | None, float]] = []
+
+        self.min_or_max = min_or_max
         if self.min_or_max == "max":
             self.best_objective: float = float('-inf')
         else:
@@ -99,7 +111,15 @@ class MLFlowTracker:
             logger.info(f"Global config from path: {config_path} has been logged to MLFlow.")
 
     def log_dataset(self, path: str | Path):
-        """Log dataset path to MLFlow"""
+        """
+        Log a dataset path to MLflow as a parameter.
+
+        Parameters
+        ----------
+        path : str | Path
+            Path to the dataset file or directory. If the path does not exist,
+            a warning is logged and the call is skipped.
+        """
         dataset_path = Path(path)
         if not dataset_path.exists():
             logger.warning(f"No such file or directory: {path}. Skipping this dataset logging.")
@@ -119,7 +139,7 @@ class MLFlowTracker:
 
         step : int | None, optional
             Step index to associate with the metrics (e.g., training iteration or epoch).
-        I   f None, MLflow logs metrics without a step.
+        If None, MLflow logs metrics without a step.
         """
 
         try:
@@ -148,12 +168,20 @@ class MLFlowTracker:
         ----------
         metrics : dict
             Dictionary mapping artifact names to data structures convertible
-            to pandas DataFrames.
-            Example:
-                {
-                    "confusion_matrix": [[50, 2], [1, 47]],
-                    "per_class_metrics": [{"class": 0, "f1": 0.91}, ...]
-                }
+            to a 2D pandas DataFrame. Each value is saved as a separate CSV file.
+            Supported value types:
+
+            - ``list[list]`` — rows of values, columns auto-named (0, 1, …).
+              E.g. ``{"confusion_matrix": [[50, 2], [1, 47]]}``
+              Tip: pass ``sklearn.metrics.confusion_matrix(y_true, y_pred)`` directly.
+            - ``list[dict]`` — list of records; dict keys become column headers.
+              E.g. ``{"per_class": [{"class": "cat", "f1": 0.91}, ...]}``
+            - ``dict[str, list]`` — column-oriented; dict keys become column headers.
+              E.g. ``{"results": {"predicted": [0, 1], "actual": [0, 0]}}``
+            - ``np.ndarray`` — treated the same as ``list[list]``.
+
+            Each value must be 2D. Scalars or ragged structures will raise an error
+            (caught per-key, logged as a warning).
         """
         try:
             with tempfile.TemporaryDirectory() as tmp:
@@ -171,26 +199,45 @@ class MLFlowTracker:
         except Exception as e:
             logger.warning(f"Artifact logging failed entirely: {e}")
             
-    def log_models(self, model, model_name: str, step: int = 0):
+    def log_model(self, model: nn.Module, model_name: str, mode: Literal["training", "evaluation"], number_of_models_to_track: int = 1, step: int | None = None):
+        """
+        Log a PyTorch model to MLflow and manage tracked model slots.
+
+        Saves the model as a .pt file, renames it from MLflow's default .pth extension,
+        and during training mode enforces the top-N tracking limit by evicting the
+        worst-performing model when the list is full.
+
+        Parameters
+        ----------
+        model : nn.Module
+            The PyTorch model to log.
+        model_name : str
+            Base name for the model (a timestamp and number are appended).
+        mode : "training" or "evaluation"
+            In training mode, updates the tracked models list and evicts the worst if needed.
+        number_of_models_to_track : int, default=1
+            Maximum number of models to keep (training mode only).
+        step : int | None, optional
+            Training step to associate with the logged model.
+        """
         self.model_name = f"{model_name}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{self.model_number}"
         model_info = mlflow.pytorch.log_model(pytorch_model=model, name=self.model_name, step=step) # type: ignore
         self.model_number += 1
         self.model_id = model_info.model_id
-        
         # model extension change from .pth to .pt
         pth_path = Path(self.artifact_dir) / self.model_dir / self.model_id / "artifacts/data/model.pth"
         pt_path = pth_path.with_name(self.model_name + ".pt")
         pth_path.rename(pt_path)
-
-        self.update_models_tracked()
-        if self.dropped_model_id is not None:
-            self.del_model_folder(self.dropped_model_id)
-            self.del_model_art(self.dropped_model_id)
-            self.client.delete_logged_model(self.dropped_model_id)
-            self.dropped_model_id = None
+        if mode == "training":
+            self.update_models_tracked(number_of_models_to_track=number_of_models_to_track)
+            if self.dropped_model_id is not None:
+                self.del_model_folder(self.dropped_model_id)
+                self.del_model_art(self.dropped_model_id)
+                self.client.delete_logged_model(self.dropped_model_id)
+                self.dropped_model_id = None
 
     def check_if_better(self, objective:float) -> bool:
-
+        """Return True if the given objective value beats the current best, based on min_or_max."""
         if self.min_or_max == "min" and objective < self.best_objective:
                 self.best_objective = objective
                 return True
@@ -199,11 +246,16 @@ class MLFlowTracker:
                 return True
         return False
     
-    def update_models_tracked(self):
+    def update_models_tracked(self, number_of_models_to_track: int):
+        """
+        Add the current model to the tracked list and evict the worst if the limit is exceeded.
+
+        Sets self.dropped_model_id to the evicted model's ID (or None if no eviction).
+        """
         self.dropped_model_id = None
         if self.model_id is not None:
             self.models_id_list.append((self.model_id, self._current_best_val))
-        if len(self.models_id_list) > self.number_of_models_to_track:
+        if len(self.models_id_list) > number_of_models_to_track:
             if self.min_or_max == "max":
                 worst = min(self.models_id_list, key=lambda x: x[1])
             else:
@@ -213,13 +265,14 @@ class MLFlowTracker:
 
     
     def del_model_folder(self, dropped_model_id):
+        """Delete the model's directory from the filesystem."""
         dropped_model_path = Path(self.artifact_dir) / self.model_dir / dropped_model_id
 
         if dropped_model_path.exists():
             shutil.rmtree(dropped_model_path)
 
     def del_model_art(self, dropped_model_id):
-
+        """Delete the model's artifact folder (metrics, configs) from the current run."""
         model_name = mlflow.get_logged_model(dropped_model_id).name
         dropped_model_art_path = Path(self.artifact_dir) / self.run_id / "artifacts" / model_name
         logger.info(f"Deleting artifact folder: {dropped_model_art_path}")
@@ -227,12 +280,96 @@ class MLFlowTracker:
             shutil.rmtree(dropped_model_art_path)
 
 
-    def log_training(self, model: Model, model_name:str, step: int | None = None):
+    def log_training(self, model: Model, model_name:str, number_of_models_to_track: int, step: int | None = None):
+        """
+        Log a training step. If the model's best_val beats the current best objective,
+        logs the model, metrics, metric artifacts, and configs to MLflow. Evicts
+        the worst tracked model if the top-N limit is exceeded.
 
+        Parameters
+        ----------
+        model : Model
+            The Model dataclass containing the nn.Module, metrics, and config paths.
+        model_name : str
+            Base name for the model.
+        number_of_models_to_track : int
+            Maximum number of models to keep.
+        step : int | None, optional
+            Training step/epoch number.
+        """
         if self.check_if_better(objective=model.best_val):
             self._current_best_val = model.best_val
-            self.log_models(model=model.model, model_name=model_name, step=step or 0)
+            self.log_model(model=model.model, mode="training", model_name=model_name, number_of_models_to_track=number_of_models_to_track, step=step or 0)
             self.log_metrics(metrics=model.metrics, step=step, model_id=self.model_id, artifact_path=self.model_name)
             self.log_metrics_artifact(metrics=model.metrics_art, save_metrics_for_model=True, artifact_path=self.model_name)
-            self.log_config(config_path=model.config, save_config_for_model=True, save_as_parameters=True, artifact_path=self.model_name)
-            
+            for config_path in model.configs:
+                self.log_config(config_path=config_path, save_config_for_model=True, save_as_parameters=True, artifact_path=self.model_name)
+
+    def log_evaluation(self, model: Model, model_name:str):
+        """
+        Log an evaluation run. Does not save the model file — only records
+        the evaluated model's name as an MLflow parameter, along with metrics,
+        metric artifacts, and configs.
+
+        Parameters
+        ----------
+        model : Model
+            The Model dataclass containing metrics and config paths.
+        model_name : str
+            Name of the model that was evaluated (logged as 'evaluated_model' parameter).
+        """
+        self.model_name = model_name
+        mlflow.log_param("evaluated_model", model_name)
+        self.log_metrics(metrics=model.metrics, artifact_path=self.model_name)
+        self.log_metrics_artifact(metrics=model.metrics_art, save_metrics_for_model=True, artifact_path=self.model_name)
+        for config_path in model.configs:
+            self.log_config(config_path=config_path, save_config_for_model=True, save_as_parameters=True, artifact_path=self.model_name)
+
+    
+    def load_model(self, model_name: str) -> tuple[nn.Module, list[Path]]:
+        """
+        Load a previously logged model and its config files by name.
+
+        Parameters
+        ----------
+        model_name : str
+            The full name of the model (e.g., "Resnet_2026-03-25_13-30-40_5").
+
+        Returns
+        -------
+        tuple[nn.Module, list[Path]]
+            The loaded PyTorch model and list of associated config file paths.
+        """
+        active_run = mlflow.active_run()
+        if active_run is None:
+            raise RuntimeError("No active MLflow run. Call config.apply() first.")
+        experiment_id = active_run.info.experiment_id
+
+        results = self.client.search_logged_models(
+            experiment_ids=[experiment_id],
+            filter_string=f"name = '{model_name}'"
+        )
+        
+        if not results:
+            raise ValueError(f"No model found with name '{model_name}'")
+
+        logged_model = results[0]
+        model_id = logged_model.model_id
+        source_run_id = logged_model.source_run_id
+        if source_run_id is None:
+            raise ValueError(f"Model '{model_name}' has no source run ID")
+
+        # Load the .pt file from the model directory
+        model_path = Path(self.artifact_dir) / self.model_dir / model_id / "artifacts" / "data" / f"{model_name}.pt"
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+
+        loaded_model = torch.load(model_path, weights_only=False)
+        logger.info(f"Loaded model from {model_path}")
+
+        # Find config files from the source run's artifact directory
+        config_dir = Path(self.artifact_dir) / source_run_id / "artifacts" / model_name
+        config_paths = sorted(config_dir.glob("*.json")) if config_dir.exists() else []
+        logger.info(f"Found {len(config_paths)} config files for model '{model_name}'")
+
+        return loaded_model, config_paths

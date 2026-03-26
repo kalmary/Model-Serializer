@@ -8,6 +8,13 @@ from mlflow import MlflowClient
 logger = logging.getLogger(__name__)
 
 class MLFlowConfig:
+    """
+    Loads MLflow configuration and manages experiment/run lifecycle.
+
+    Typically created via ``MLFlowConfig.from_json(path)`` and then
+    activated with ``config.apply(run_name)``.
+    """
+
     def __init__(
         self,
         tracking_uri: str,
@@ -65,3 +72,7 @@ class MLFlowConfig:
             logger.warning("Another run is already active. To start a new run, first end this one")
 
         return MlflowClient(tracking_uri=self.tracking_uri)
+
+    def end_run(self):
+        """End the current MLflow run."""
+        mlflow.end_run()
