@@ -9,7 +9,7 @@ from src.config import MLFlowConfig
 import pandas as pd
 import tempfile
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Sequence
 from dataclasses import dataclass
 import torch
 import torch.nn as nn
@@ -21,7 +21,7 @@ class Model:
      model: nn.Module
      metrics: dict
      metrics_art: dict
-     configs: list[str | Path]
+     configs: Sequence[str | Path]
      best_val: float
 
 
