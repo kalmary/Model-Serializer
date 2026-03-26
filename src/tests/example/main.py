@@ -65,7 +65,7 @@ def evaluation_run(best_model_name: str):
 def main():
 
     training_run()
-    evaluation_run(best_model_name="Resnet_2026-03-25_15-00-35_4")
+    evaluation_run(best_model_name="Resnet_2026-03-26_11-43-08_5")
 
 
 

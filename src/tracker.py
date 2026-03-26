@@ -224,7 +224,6 @@ class MLFlowTracker:
         model_info = mlflow.pytorch.log_model(pytorch_model=model, name=self.model_name, step=step) # type: ignore
         self.model_number += 1
         self.model_id = model_info.model_id
-        
         # model extension change from .pth to .pt
         pth_path = Path(self.artifact_dir) / self.model_dir / self.model_id / "artifacts/data/model.pth"
         pt_path = pth_path.with_name(self.model_name + ".pt")
