@@ -111,7 +111,15 @@ class MLFlowTracker:
             logger.info(f"Global config from path: {config_path} has been logged to MLFlow.")
 
     def log_dataset(self, path: str | Path):
-        """Log dataset path to MLFlow"""
+        """
+        Log a dataset path to MLflow as a parameter.
+
+        Parameters
+        ----------
+        path : str | Path
+            Path to the dataset file or directory. If the path does not exist,
+            a warning is logged and the call is skipped.
+        """
         dataset_path = Path(path)
         if not dataset_path.exists():
             logger.warning(f"No such file or directory: {path}. Skipping this dataset logging.")
@@ -131,7 +139,7 @@ class MLFlowTracker:
 
         step : int | None, optional
             Step index to associate with the metrics (e.g., training iteration or epoch).
-        I   f None, MLflow logs metrics without a step.
+        If None, MLflow logs metrics without a step.
         """
 
         try:
@@ -160,12 +168,20 @@ class MLFlowTracker:
         ----------
         metrics : dict
             Dictionary mapping artifact names to data structures convertible
-            to pandas DataFrames.
-            Example:
-                {
-                    "confusion_matrix": [[50, 2], [1, 47]],
-                    "per_class_metrics": [{"class": 0, "f1": 0.91}, ...]
-                }
+            to a 2D pandas DataFrame. Each value is saved as a separate CSV file.
+            Supported value types:
+
+            - ``list[list]`` — rows of values, columns auto-named (0, 1, …).
+              E.g. ``{"confusion_matrix": [[50, 2], [1, 47]]}``
+              Tip: pass ``sklearn.metrics.confusion_matrix(y_true, y_pred)`` directly.
+            - ``list[dict]`` — list of records; dict keys become column headers.
+              E.g. ``{"per_class": [{"class": "cat", "f1": 0.91}, ...]}``
+            - ``dict[str, list]`` — column-oriented; dict keys become column headers.
+              E.g. ``{"results": {"predicted": [0, 1], "actual": [0, 0]}}``
+            - ``np.ndarray`` — treated the same as ``list[list]``.
+
+            Each value must be 2D. Scalars or ragged structures will raise an error
+            (caught per-key, logged as a warning).
         """
         try:
             with tempfile.TemporaryDirectory() as tmp:
