@@ -130,7 +130,7 @@ config.end_run()
 |-------|------|-------------|
 | `model` | `nn.Module` | PyTorch model |
 | `metrics` | `dict` | Scalar metrics, e.g. `{"accuracy": 0.9}` |
-| `metrics_art` | `dict` | Non-scalar metrics logged as CSVs, e.g. `{"cm": [[50, 2], [1, 47]]}` |
+| `metrics_art` | `dict` | Non-scalar metrics logged as CSVs. Each value must be convertible to a 2D pandas DataFrame. Supported types: `list[list]` (e.g. a confusion matrix array from `sklearn`), `list[dict]` (records with named columns), `dict[str, list]` (column-oriented), or `np.ndarray`. Each key becomes a separate CSV artifact. |
 | `configs` | `list[str \| Path]` | Paths to config files associated with this model |
 | `best_val` | `float` | Value used to compare models (mapped to `min_or_max` objective) |
 
