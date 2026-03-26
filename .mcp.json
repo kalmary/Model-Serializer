@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mlflow-mcp": {
+      "command": "bash",
+      "args": ["start_mlflow_mcp.sh"]
+    }
+  }
+}

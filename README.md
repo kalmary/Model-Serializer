@@ -102,6 +102,16 @@ eval_tracker.log_evaluation(model=model, model_name="Resnet_2026-03-25_15-00-35_
 config.end_run()
 ```
 
+## Viewing the MLflow UI
+
+To open the MLflow UI, navigate to the directory containing your tracking database and run:
+
+```bash
+mlflow ui
+```
+
+The UI will be available at `http://127.0.0.1:5000` by default.
+
 ## API Reference
 
 ### `MLFlowConfig`
