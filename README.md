@@ -19,12 +19,16 @@ A PyTorch model tracking library built on MLflow. Keeps the top-N best-performin
 ## Installation
 
 ```bash
-uv sync
+uv venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
 ```
 
 Or with pip:
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
