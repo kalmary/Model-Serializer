@@ -36,7 +36,9 @@ pip install -r requirements.txt
 
 See `config/mlflow_config_readme.txt` for a full description of all config JSON fields.
 
-First configure the mlflow_config.json file in the example folder. A complete working example lives in `src/tests/example/main.py`. You can run it with:
+First configure the mlflow_config.json file inside the example folder.
+ 
+A complete working example lives in `src/tests/example/main.py`. You can run it with:
 
 ```bash
 python -m src.tests.example.main
@@ -120,33 +122,140 @@ The UI will be available at `http://127.0.0.1:5000` by default.
 
 ### `MLFlowConfig`
 
-| Method | Description |
-|--------|-------------|
-| `MLFlowConfig.from_json(path)` | Load config from a JSON file |
-| `config.apply(run_name=None)` | Set up MLflow experiment, start a run, return `MlflowClient` |
-| `config.end_run()` | End the current MLflow run |
+#### `MLFlowConfig.from_json(path: str | Path) -> MLFlowConfig`
 
-### `MLFlowTracker(client, config, min_or_max)`
+Load config from a JSON file. Only keys matching `MLFlowConfig.__init__` parameters are used; extra keys are ignored.
 
-| Method | Description |
-|--------|-------------|
-| `log_training(model, model_name, number_of_models_to_track, step)` | Log model if it beats the current best, evict worst if limit exceeded |
-| `log_evaluation(model, model_name)` | Log evaluation metrics and configs (no model file saved, name recorded as parameter) |
-| `load_model(model_name)` | Load a previously saved model by name, returns `(nn.Module, list[Path])` |
-| `log_config(config_path, ...)` | Log a JSON config as artifact and/or MLflow parameters |
-| `log_dataset(path)` | Log dataset path as an MLflow parameter |
-| `log_metrics(metrics, step, ...)` | Log scalar metrics dict |
-| `log_metrics_artifact(metrics, ...)` | Log structured metrics as CSV artifacts |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | `str \| Path` | — | Path to the JSON config file |
+
+---
+
+#### `config.apply(run_name: str | None = None) -> MlflowClient`
+
+Set the MLflow tracking URI, create the experiment if it doesn't exist, and start a new run. Returns an `MlflowClient` to pass to `MLFlowTracker`.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `run_name` | `str \| None` | `None` | Run name; falls back to `run_name` from the JSON config if not provided |
+
+---
+
+#### `config.end_run()`
+
+End the currently active MLflow run.
+
+---
+
+### `MLFlowTracker`
+
+#### `MLFlowTracker(client: MlflowClient, config: MLFlowConfig, min_or_max: "min" | "max" | None)`
+
+Create a tracker. Pass `min_or_max=None` for evaluation runs where no model comparison is needed.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `client` | `MlflowClient` | Returned by `config.apply()` |
+| `config` | `MLFlowConfig` | The loaded config object |
+| `min_or_max` | `"min" \| "max" \| None` | Whether to keep models with the lowest or highest `best_val` |
+
+---
+
+#### `tracker.log_training(model: Model, model_name: str, number_of_models_to_track: int, step: int | None = None)`
+
+Log a training step. If `model.best_val` beats the current best objective, saves the model file, metrics, CSV artifacts, and configs to MLflow. When the tracked model count exceeds `number_of_models_to_track`, the worst-performing model is evicted from disk and MLflow.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model` | `Model` | — | Dataclass containing the model, metrics, and config paths |
+| `model_name` | `str` | — | Base name; a timestamp and counter are appended (e.g. `Resnet_2026-04-07_12-00-00_1`) |
+| `number_of_models_to_track` | `int` | — | Maximum number of models to keep simultaneously |
+| `step` | `int \| None` | `None` | Training epoch or iteration number associated with this log |
+
+---
+
+#### `tracker.log_evaluation(model: Model, model_name: str)`
+
+Log an evaluation run. Does not save a model file — records `model_name` as the `evaluated_model` MLflow parameter and logs metrics, CSV artifacts, and configs.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model` | `Model` | — | Dataclass containing the loaded model, metrics, and config paths |
+| `model_name` | `str` | — | Full name of the model that was evaluated (as saved during training) |
+
+---
+
+#### `tracker.load_model(model_name: str) -> tuple[nn.Module, list[Path]]`
+
+Load a previously logged model by its full name and return it along with its associated config file paths.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model_name` | `str` | — | Full model name including timestamp and counter (e.g. `Resnet_2026-04-07_12-00-00_1`) |
+
+Returns `(nn.Module, list[Path])` — the loaded PyTorch model and a sorted list of `.json` config paths from the model's artifact directory.
+
+---
+
+#### `tracker.log_config(config_path: str | Path, save_config_for_model: bool = True, save_as_parameters: bool = True, artifact_path: str = "")`
+
+Log a JSON config file as an MLflow artifact and optionally as run parameters. Skips silently if the file does not exist.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `config_path` | `str \| Path` | — | Path to the config file (must be JSON if `save_as_parameters=True`) |
+| `save_config_for_model` | `bool` | `True` | If `True` and `artifact_path` is set, saves the artifact under that subfolder; otherwise saves to the run root |
+| `save_as_parameters` | `bool` | `True` | If `True`, parses the JSON and logs each top-level key as an MLflow parameter (skips keys already logged) |
+| `artifact_path` | `str` | `""` | Artifact subfolder path (typically the model name); required for `save_config_for_model=True` to take effect |
+
+---
+
+#### `tracker.log_dataset(path: str | Path)`
+
+Log a dataset path as the `dataset_path` MLflow parameter. Skips if the path does not exist.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | `str \| Path` | — | Path to the dataset file or directory |
+
+---
+
+#### `tracker.log_metrics(metrics: dict, step: int | None = None, save_as_artifact: bool = True, model_id: str | None = None, artifact_path: str = "")`
+
+Log scalar metrics to MLflow and optionally save them as a `metrics.json` artifact.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `metrics` | `dict` | — | Metric names to numeric values, e.g. `{"accuracy": 0.92, "loss": 0.25}` |
+| `step` | `int \| None` | `None` | Training step or epoch to associate with the metrics |
+| `save_as_artifact` | `bool` | `True` | If `True` and `artifact_path` is set, also saves a `metrics.json` artifact under `artifact_path` |
+| `model_id` | `str \| None` | `None` | MLflow model ID to associate the metrics with |
+| `artifact_path` | `str` | `""` | Artifact subfolder for the metrics JSON; required for artifact saving to take effect |
+
+---
+
+#### `tracker.log_metrics_artifact(metrics: dict, save_metrics_for_model: bool = True, artifact_path: str = "")`
+
+Log structured (non-scalar) metrics as CSV artifacts. Each key in `metrics` becomes a separate `.csv` file.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `metrics` | `dict` | — | Mapping of artifact name to a 2D structure: `list[list]`, `list[dict]`, `dict[str, list]`, or `np.ndarray`. Each value is saved as `<name>.csv`. |
+| `save_metrics_for_model` | `bool` | `True` | If `True` and `artifact_path` is set, saves CSVs under that subfolder; otherwise saves to the run root |
+| `artifact_path` | `str` | `""` | Artifact subfolder (typically the model name); required for `save_metrics_for_model=True` to take effect |
+
+---
 
 ### `Model` dataclass
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `model` | `nn.Module` | PyTorch model |
-| `metrics` | `dict` | Scalar metrics, e.g. `{"accuracy": 0.9}` |
-| `metrics_art` | `dict` | Non-scalar metrics logged as CSVs. Each value must be convertible to a 2D pandas DataFrame. Supported types: `list[list]` (e.g. a confusion matrix array from `sklearn`), `list[dict]` (records with named columns), `dict[str, list]` (column-oriented), or `np.ndarray`. Each key becomes a separate CSV artifact. |
-| `configs` | `list[str \| Path]` | Paths to config files associated with this model |
-| `best_val` | `float` | Value used to compare models (mapped to `min_or_max` objective) |
+| `model` | `nn.Module` | The PyTorch model |
+| `metrics` | `dict` | Scalar metrics logged to MLflow, e.g. `{"accuracy": 0.9, "loss": 0.3}` |
+| `metrics_art` | `dict` | Non-scalar metrics saved as CSV artifacts. Each key becomes a separate `.csv` file. Supported value types: `list[list]` (e.g. a confusion matrix from `sklearn`), `list[dict]` (records with named columns), `dict[str, list]` (column-oriented), or `np.ndarray`. Values must be 2D. |
+| `configs` | `list[str \| Path]` | Paths to JSON config files to associate with this model |
+| `best_val` | `float` | The value compared against the tracker's objective (`min_or_max`) to decide whether to log this model |
 
 ### Config JSON fields
 
