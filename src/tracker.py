@@ -280,7 +280,7 @@ class MLFlowTracker:
             shutil.rmtree(dropped_model_art_path)
 
 
-    def log_training(self, model: Model, model_name:str, number_of_models_to_track: int, step: int | None = None):
+    def log_training(self, model: Model, model_name:str, number_of_models_to_track: int = 1, step: int | None = None):
         """
         Log a training step. If the model's best_val beats the current best objective,
         logs the model, metrics, metric artifacts, and configs to MLflow. Evicts

@@ -170,7 +170,7 @@ Log a training step. If `model.best_val` beats the current best objective, saves
 |-----------|------|---------|-------------|
 | `model` | `Model` | — | Dataclass containing the model, metrics, and config paths |
 | `model_name` | `str` | — | Base name; a timestamp and counter are appended (e.g. `Resnet_2026-04-07_12-00-00_1`) |
-| `number_of_models_to_track` | `int` | — | Maximum number of models to keep simultaneously |
+| `number_of_models_to_track` | `int` | `1` | Maximum number of models to keep simultaneously |
 | `step` | `int \| None` | `None` | Training epoch or iteration number associated with this log |
 
 ---
