@@ -1,3 +1,6 @@
+# rm this after reed
+- no need to specify requirements like this. uv/ pip work the same at this level. should work with older python versions too. most of projects are based on python 3.12
+
 # Model-Serializer
 
 A PyTorch model tracking library built on MLflow. Keeps the top-N best-performing models during training and automatically evicts the worst when the limit is exceeded.
@@ -13,8 +16,7 @@ A PyTorch model tracking library built on MLflow. Keeps the top-N best-performin
 
 ## Requirements
 
-- Python 3.13+
-- `uv` (package manager)
+- Python 3.13+ (tested, but should work on Python 3.10+ as well)
 
 ## Installation
 
