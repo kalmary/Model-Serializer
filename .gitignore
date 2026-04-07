@@ -5,7 +5,9 @@
 /quickstart_code
 
 __pycache__/
-src/tests
+src/tests/**
+!src/tests/example/
+!src/tests/example/mlflow_config.json
 mlflow_data/
 
 # Claude Code
