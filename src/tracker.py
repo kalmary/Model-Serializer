@@ -49,8 +49,8 @@ class MLFlowTracker:
         self.dropped_model_id = None
         self.models_id_list: list[tuple[str | None, float]] = []
 
-        self.min_or_max = min_or_max
-        if self.min_or_max == "max":
+        self.min_max_mode = min_max_mode
+        if self.min_max_mode == "max":
             self.best_objective: float = float('-inf')
         else:
             self.best_objective: float = float('inf')
@@ -237,11 +237,11 @@ class MLFlowTracker:
                 self.dropped_model_id = None
 
     def check_if_better(self, objective:float) -> bool:
-        """Return True if the given objective value beats the current best, based on min_or_max."""
-        if self.min_or_max == "min" and objective < self.best_objective:
+        """Return True if the given objective value beats the current best, based on min_max_mode."""
+        if self.min_max_mode == "min" and objective < self.best_objective:
                 self.best_objective = objective
                 return True
-        elif self.min_or_max == "max" and objective > self.best_objective:
+        elif self.min_max_mode == "max" and objective > self.best_objective:
                 self.best_objective = objective
                 return True
         return False
@@ -256,7 +256,7 @@ class MLFlowTracker:
         if self.model_id is not None:
             self.models_id_list.append((self.model_id, self._current_best_val))
         if len(self.models_id_list) > number_of_models_to_track:
-            if self.min_or_max == "max":
+            if self.min_max_mode == "max":
                 worst = min(self.models_id_list, key=lambda x: x[1])
             else:
                 worst = max(self.models_id_list, key=lambda x: x[1])

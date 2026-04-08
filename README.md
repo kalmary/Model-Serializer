@@ -1,8 +1,4 @@
-# rm this after reed and applying changes
-- no need to specify requirements like this. uv/ pip work the same at this level. should work with older python versions too. most of projects are based on python 3.12
-- add separate torch installation instruction. installing it from requirements is often problematic
-
-# Model-Serializer
+# NNModelSerializer
 
 A PyTorch model tracking library built on MLflow. Keeps the top-N best-performing models during training and automatically evicts the worst when the limit is exceeded.
 
@@ -21,18 +17,24 @@ A PyTorch model tracking library built on MLflow. Keeps the top-N best-performin
 
 ## Installation
 
+Clone the repository to your local machine:
 ```bash
-uv venv
-source .venv/bin/activate
-uv pip install -r requirements.txt
+
+git clone https://github.com/kalmary/NNModelSerializer.git
+
+cd NNModelSerializer
 ```
 
-Or with pip:
-
+Create and activate a Virtual Environment and install requirements:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+
+# Install all requirements, without pytorch and cuda
 pip install -r requirements.txt
+
+# Tested on this, but should work with any other version
+pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
 ```
 
 ## Quick Start
@@ -153,7 +155,7 @@ End the currently active MLflow run.
 
 ### `MLFlowTracker`
 
-#### `MLFlowTracker(client: MlflowClient, config: MLFlowConfig, min_or_max: "min" | "max" | None)`
+#### `MLFlowTracker(client: MlflowClient, config: MLFlowConfig, min_max_mode: "min" | "max" | None)`
 
 Create a tracker. Pass `min_or_max=None` for evaluation runs where no model comparison is needed.
 
@@ -161,7 +163,7 @@ Create a tracker. Pass `min_or_max=None` for evaluation runs where no model comp
 |-----------|------|-------------|
 | `client` | `MlflowClient` | Returned by `config.apply()` |
 | `config` | `MLFlowConfig` | The loaded config object |
-| `min_or_max` | `"min" \| "max" \| None` | Whether to keep models with the lowest or highest `best_val` |
+| `min_max_mode` | `"min" \| "max" \| None` | Whether to keep models with the lowest or highest `best_val` |
 
 ---
 
