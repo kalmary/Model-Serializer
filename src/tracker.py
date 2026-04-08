@@ -38,7 +38,7 @@ class MLFlowTracker:
     then ``log_evaluation()`` to record metrics without saving a duplicate model file.
     """
 
-    def __init__(self, client: MlflowClient, config: MLFlowConfig, min_or_max: Literal["min", "max"] | None) -> None:
+    def __init__(self, client: MlflowClient, config: MLFlowConfig, min_max_mode: Literal["min", "max"] | None) -> None:
         self.artifact_dir = config.artifact_dir
         self.model_dir = config.models_dir
         self.client = client
